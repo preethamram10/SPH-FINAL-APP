@@ -1,0 +1,1 @@
+const fs = require('fs'); const code = fs.readFileSync('src/screens/Dashboard.js', 'utf8'); const lines = code.split('\n'); lines.forEach((line, i) => { if(line.match(/\{\s*[a-zA-Z_0-9\.]+\s*&&\s*</)) console.log(i+1, line.trim()); });

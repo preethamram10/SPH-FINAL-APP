@@ -1,0 +1,963 @@
+﻿diff --git a/src/screens/Dashboard.js b/src/screens/Dashboard.js
+index 9a32a6a..cc9402e 100644
+--- a/src/screens/Dashboard.js
++++ b/src/screens/Dashboard.js
+@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
+ import { Text, Surface, IconButton, ActivityIndicator, Avatar, Chip, Button, TextInput, Menu as PaperMenu } from 'react-native-paper';
+ import { useAuth } from '../context/AuthContext';
+ import { auth } from '../firebase';
+-import { Clock, IndianRupee, FileCheck, MapPin, CheckCircle2, AlertCircle, LogOut, Users, Calendar, UserPlus, ChevronRight, User, PlusCircle, ArrowRight, Clipboard, RefreshCw, Home, CalendarPlus, Fingerprint, Play, Eye, Menu, Package, FileText, Bell, CreditCard, Trash2, CalendarClock, X, Phone, MessageCircle, Target, Video, ChevronDown, CalendarDays, XCircle, Coins, Pill, ArrowUp, ArrowDown, Image as ImageIcon } from 'lucide-react-native';
++import { Clock, IndianRupee, FileCheck, MapPin, CheckCircle2, AlertCircle, LogOut, Users, Calendar, UserPlus, ChevronRight, ChevronLeft, Stethoscope, User, PlusCircle, ArrowRight, Clipboard, RefreshCw, Home, CalendarPlus, Fingerprint, Play, Eye, Menu, Package, FileText, Bell, CreditCard, Trash2, CalendarClock, X, Phone, MessageCircle, Target, Video, ChevronDown, CalendarDays, XCircle, Coins, Pill, ArrowUp, ArrowDown, Image as ImageIcon } from 'lucide-react-native';
+ import Svg, { Path } from 'react-native-svg';
+ 
+ const WhatsAppIcon = ({ size = 16, color = '#25d366' }) => (
+@@ -746,7 +746,7 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
+ 
+       const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+       const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59);
+-      
++
+       const transRef = collection(db, 'transactions');
+       const qTrans = query(
+         transRef,
+@@ -856,7 +856,7 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
+         if (!snap.empty) {
+           const docData = snap.docs[0].data();
+           if (docData.consultationFee !== undefined && docData.consultationFee !== null) {
+-            setFeeAmount(Number(docData.consultationFee));
++            setConsultationFee(Number(docData.consultationFee));
+             return;
+           }
+         }
+@@ -864,16 +864,21 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
+         const settingsRef = doc(db, 'settings', 'global');
+         const settingsSnap = await getDoc(settingsRef);
+         if (settingsSnap.exists() && settingsSnap.data().consultationFee) {
+-          setFeeAmount(Number(settingsSnap.data().consultationFee));
++          setConsultationFee(Number(settingsSnap.data().consultationFee));
+         } else {
+-          setFeeAmount(600);
++          setConsultationFee(600);
+         }
+       } catch (e) {
+         console.error("Error fetching doctor fee for payment modal:", e);
+       }
+     };
+ 
+-    fetchDoctorFee();
++    const patientFee = Number(selectedPatientForPayment.paymentAmount) || Number(selectedPatientForPayment.requestedAmount) || Number(selectedPatientForPayment.amountRequested) || Number(selectedPatientForPayment.consultationFee);
++    if (patientFee) {
++      setConsultationFee(patientFee);
++    } else {
++      fetchDoctorFee();
++    }
+   }, [selectedPatientForPayment]);
+ 
+   React.useEffect(() => {
+@@ -883,8 +888,8 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
+         const settingsSnap = await getDoc(settingsRef);
+         if (settingsSnap.exists()) {
+           const data = settingsSnap.data();
+-          if (data.consultationFee) {
+-            setFeeAmount(data.consultationFee);
++          if (data.consultationFee && !selectedPatientForPayment) {
++            setConsultationFee(data.consultationFee);
+           }
+         }
+       } catch (e) {
+@@ -892,7 +897,7 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
+       }
+     };
+     fetchGlobalSettings();
+-  }, []);
++  }, [selectedPatientForPayment]);
+ 
+   const [monthlyMetrics, setMonthlyMetrics] = React.useState({
+     present: 0,
+@@ -904,8 +909,9 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
+   });
+ 
+   const fetchMonthlyMetrics = React.useCallback(async () => {
+-    if (!auth.currentUser || !userData) return;
+-    if (userData.role === 'doctor') return;
++    const uid = auth.currentUser?.uid || userData?.uid;
++    if (!uid) return;
++    if (userData?.role === 'doctor') return;
+ 
+     try {
+       const today = new Date();
+@@ -914,7 +920,7 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
+ 
+       const logsQ = query(
+         collection(db, 'activity_logs'),
+-        where('userId', '==', auth.currentUser.uid)
++        where('userId', '==', uid)
+       );
+       const logsSnap = await getDocs(logsQ);
+       const userLogs = [];
+@@ -937,7 +943,7 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
+ 
+       const leavesQ = query(
+         collection(db, 'leave_requests'),
+-        where('staffId', '==', auth.currentUser.uid),
++        where('staffId', '==', uid),
+         where('status', '==', 'approved')
+       );
+       const leavesSnap = await getDocs(leavesQ);
+@@ -1357,21 +1363,33 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
+     if (!userData) return;
+     setPatientsLoading(true);
+ 
+-    // Fetch monthly target for receptionist
+     const unsubscribeTarget = fetchMonthlyTarget();
+ 
+-    let unsubPatients = () => { };
+-    let unsubAppointments = () => { };
++    let unsubPatientsToday = () => { };
++    let unsubApptsToday = () => { };
++    let unsubPatientsYest = () => { };
++    let unsubApptsYest = () => { };
+ 
+-    // In-memory aggregates for perfect real-time updates
+-    let latestWalkins = [];
+-    let latestOnline = [];
++    let latestWalkinsToday = [];
++    let latestOnlineToday = [];
++    let latestWalkinsYest = [];
++    let latestOnlineYest = [];
+ 
+     const combineAndSet = () => {
+-      const combined = [...latestWalkins, ...latestOnline];
++      const combined = [...latestWalkinsToday, ...latestOnlineToday, ...latestWalkinsYest, ...latestOnlineYest];
++
++      const unique = [];
++      const seen = new Set();
++      for (const p of combined) {
++        if (!seen.has(p.id)) {
++          seen.add(p.id);
++          unique.push(p);
++        }
++      }
++
+       const parseTimeStr = (timeStr) => {
+-        if (!timeStr || timeStr === 'N/A') return 9999; // Put appointments with no time at the end
+-        const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM)/i);
++        if (!timeStr || timeStr === 'N/A') return 9999;
++        const match = timeStr.match(/(\\d+):(\\d+)\\s*(AM|PM)/i);
+         if (!match) return 9999;
+         let hours = parseInt(match[1], 10);
+         const mins = parseInt(match[2], 10);
+@@ -1381,7 +1399,7 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
+         return hours * 60 + mins;
+       };
+ 
+-      const sorted = combined.sort((a, b) => {
++      const sorted = unique.sort((a, b) => {
+         const qA = typeof a.queueOrder === 'number' ? a.queueOrder : Infinity;
+         const qB = typeof b.queueOrder === 'number' ? b.queueOrder : Infinity;
+         if (qA !== qB) return qA - qB;
+@@ -1389,9 +1407,8 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
+         const tA = parseTimeStr(a.appointmentTime || a.timeSlot);
+         const tB = parseTimeStr(b.appointmentTime || b.timeSlot);
+ 
+-        if (tA !== tB) return tA - tB; // Sort by time of day first
++        if (tA !== tB) return tA - tB;
+ 
+-        // Fallback to booking order if times are same or missing
+         const timeA = (a.createdAt && typeof a.createdAt.toDate === 'function') ? a.createdAt.toDate() : (a.createdAt ? new Date(a.createdAt) : 0);
+         const timeB = (b.createdAt && typeof b.createdAt.toDate === 'function') ? b.createdAt.toDate() : (b.createdAt ? new Date(b.createdAt) : 0);
+         return timeA - timeB;
+@@ -1400,100 +1417,97 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
+       setPatientsLoading(false);
+     };
+ 
+-    // Construct target dates for querying
+     const targetDay = String(dashboardDate.getDate()).padStart(2, '0');
+     const targetMonth = String(dashboardDate.getMonth() + 1).padStart(2, '0');
+     const targetYear = dashboardDate.getFullYear();
+     const targetSlashDate = `${targetDay}/${targetMonth}/${targetYear}`;
+     const targetDashDate = `${targetYear}-${targetMonth}-${targetDay}`;
+ 
+-    if (userData.role === 'doctor') {
+-      // ---≡ƒ⌐║ DOCTOR GLOBAL MULTI-BRANCH FETCH FLOW ---
+-
+-      // 1. Subscribe to 'patients' across all branches assigned to this doctor for the selected date
+-      const qPatients = query(
+-        collection(db, 'patients'),
+-        where('status', 'in', ['booked', 'waiting', 'in-consultation', 'completed', 'done']),
+-        where('appointmentDate', '==', targetSlashDate)
+-      );
++    let ySlashDate = null;
++    let yDashDate = null;
+ 
+-      unsubPatients = onSnapshot(qPatients, (snap) => {
++    if (userData.role === 'doctor') {
++      const qPatients = query(collection(db, 'patients'), where('status', 'in', ['booked', 'waiting', 'in-consultation', 'completed', 'done']), where('appointmentDate', '==', targetSlashDate));
++      unsubPatientsToday = onSnapshot(qPatients, (snap) => {
+         const list = [];
+         const docNorm = normalizeDoctorName(userData.name || '');
+         snap.forEach(doc => {
+           const p = doc.data();
+           const patDocNorm = normalizeDoctorName(p.doctor || '');
+-          const isMine = patDocNorm && docNorm && (
+-            patDocNorm.includes(docNorm) || docNorm.includes(patDocNorm)
+-          );
+-          if (isMine) {
+-            // Bypassing booked but unpaid appointments
+-            if (p.status === 'booked' && p.paymentStatus !== 'paid') {
+-              return;
+-            }
++          if (patDocNorm && docNorm && (patDocNorm.includes(docNorm) || docNorm.includes(patDocNorm))) {
++            if (p.status === 'booked' && p.paymentStatus !== 'paid') return;
+             list.push({ id: doc.id, ...p, _type: 'walkin', firestoreCollection: 'patients' });
+           }
+         });
+-        latestWalkins = list;
++        latestWalkinsToday = list;
+         combineAndSet();
+-      }, (error) => {
+-        console.error("Doctor patients snapshot error:", error);
+       });
+ 
+-      // 2. Subscribe to 'appointments' across all branches assigned to this doctor for the selected date
+-      const qAppts = query(
+-        collection(db, 'appointments'),
+-        where('status', 'in', ['pending', 'booked', 'confirmed', 'in-consultation', 'completed', 'done']),
+-        where('dateString', '==', targetDashDate)
+-      );
++      if (ySlashDate) {
++        const qPatientsYest = query(collection(db, 'patients'), where('status', 'in', ['booked', 'waiting', 'in-consultation', 'completed', 'done']), where('appointmentDate', '==', ySlashDate));
++        unsubPatientsYest = onSnapshot(qPatientsYest, (snap) => {
++          const list = [];
++          const docNorm = normalizeDoctorName(userData.name || '');
++          snap.forEach(doc => {
++            const p = doc.data();
++            const patDocNorm = normalizeDoctorName(p.doctor || '');
++            if (patDocNorm && docNorm && (patDocNorm.includes(docNorm) || docNorm.includes(patDocNorm))) {
++              if (p.status === 'booked' && p.paymentStatus !== 'paid') return;
++              list.push({ id: doc.id, ...p, _type: 'walkin', firestoreCollection: 'patients' });
++            }
++          });
++          latestWalkinsYest = list;
++          combineAndSet();
++        });
++      }
+ 
+-      unsubAppointments = onSnapshot(qAppts, (snap) => {
++      const qAppts = query(collection(db, 'appointments'), where('status', 'in', ['pending', 'booked', 'confirmed', 'in-consultation', 'completed', 'done']), where('dateString', '==', targetDashDate));
++      unsubApptsToday = onSnapshot(qAppts, (snap) => {
+         const list = [];
+         const docNorm = normalizeDoctorName(userData.name || '');
+         snap.forEach(doc => {
+           const appt = doc.data();
+           if (appt.checkedInAt) return;
+           const patDocNorm = normalizeDoctorName(appt.doctorName || appt.doctor || '');
+-          const isMine = patDocNorm && docNorm && (
+-            patDocNorm.includes(docNorm) || docNorm.includes(patDocNorm)
+-          );
+-          if (isMine) {
+-            // Bypassing booked but unpaid appointments
+-            if (appt.status === 'booked' && appt.paymentStatus !== 'paid') {
+-              return;
+-            }
++          if (patDocNorm && docNorm && (patDocNorm.includes(docNorm) || docNorm.includes(patDocNorm))) {
++            if (appt.status === 'booked' && appt.paymentStatus !== 'paid') return;
+             let formattedDate = appt.dateString || appt.date || 'No Date';
+             if (formattedDate.includes('-')) {
+               const parts = formattedDate.split('-');
+-              if (parts.length === 3) {
+-                formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
+-              }
++              if (parts.length === 3) formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
+             }
+-            list.push({
+-              ...appt,
+-              id: doc.id,
+-              _type: 'online',
+-              firestoreCollection: 'appointments',
+-              fullName: appt.patientName || 'Online Patient',
+-              regId: 'ONLINE',
+-              phone: appt.phone || 'N/A',
+-              email: appt.email || '',
+-              appointmentDate: formattedDate,
+-              appointmentTime: appt.timeSlot || 'N/A',
+-              doctor: appt.doctorName ? (appt.doctorName.startsWith('Dr.') ? appt.doctorName : `Dr. ${appt.doctorName}`) : 'General Doctor',
+-              status: appt.status === 'pending' ? 'waiting' : (appt.status || 'waiting'),
+-              createdAt: appt.createdAt
+-            });
++            list.push({ ...appt, id: doc.id, _type: 'online', firestoreCollection: 'appointments', fullName: appt.patientName || 'Online Patient', regId: 'ONLINE', phone: appt.phone || 'N/A', email: appt.email || '', appointmentDate: formattedDate, appointmentTime: appt.timeSlot || 'N/A', doctor: appt.doctorName ? (appt.doctorName.startsWith('Dr.') ? appt.doctorName : `Dr. ${appt.doctorName}`) : 'General Doctor', status: appt.status === 'pending' ? 'waiting' : (appt.status || 'waiting'), createdAt: appt.createdAt });
+           }
+         });
+-        latestOnline = list;
++        latestOnlineToday = list;
+         combineAndSet();
+-      }, (error) => {
+-        console.error("Doctor appointments snapshot error:", error);
+       });
+ 
++      if (yDashDate) {
++        const qApptsYest = query(collection(db, 'appointments'), where('status', 'in', ['pending', 'booked', 'confirmed', 'in-consultation', 'completed', 'done']), where('dateString', '==', yDashDate));
++        unsubApptsYest = onSnapshot(qApptsYest, (snap) => {
++          const list = [];
++          const docNorm = normalizeDoctorName(userData.name || '');
++          snap.forEach(doc => {
++            const appt = doc.data();
++            if (appt.checkedInAt) return;
++            const patDocNorm = normalizeDoctorName(appt.doctorName || appt.doctor || '');
++            if (patDocNorm && docNorm && (patDocNorm.includes(docNorm) || docNorm.includes(patDocNorm))) {
++              if (appt.status === 'booked' && appt.paymentStatus !== 'paid') return;
++              let formattedDate = appt.dateString || appt.date || 'No Date';
++              if (formattedDate.includes('-')) {
++                const parts = formattedDate.split('-');
++                if (parts.length === 3) formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
++              }
++              list.push({ ...appt, id: doc.id, _type: 'online', firestoreCollection: 'appointments', fullName: appt.patientName || 'Online Patient', regId: 'ONLINE', phone: appt.phone || 'N/A', email: appt.email || '', appointmentDate: formattedDate, appointmentTime: appt.timeSlot || 'N/A', doctor: appt.doctorName ? (appt.doctorName.startsWith('Dr.') ? appt.doctorName : `Dr. ${appt.doctorName}`) : 'General Doctor', status: appt.status === 'pending' ? 'waiting' : (appt.status || 'waiting'), createdAt: appt.createdAt });
++            }
++          });
++          latestOnlineYest = list;
++          combineAndSet();
++        });
++      }
++
+     } else {
+-      // ---≡ƒöæ RECEPTIONIST / OTHER STAFF BRANCH-SPECIFIC FLOW ---
+       if (!userData.branchId) {
+         setPatientsLoading(false);
+         return;
+@@ -1506,54 +1520,36 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
+       const checkAndAdd = (name) => {
+         if (!name) return;
+         const lower = name.toLowerCase();
+-        if (lower.includes('kphb')) {
+-          branchVariations.add('KPHB');
+-          branchVariations.add('KPHB Branch');
+-        } else if (lower.includes('chnr') || lower.includes('chandanagar') || lower.includes('chandnagar')) {
+-          branchVariations.add('Chandnagar');
+-          branchVariations.add('Chandnagar Branch');
+-          branchVariations.add('Chandanagar');
+-          branchVariations.add('CHANDNAGAR');
+-        } else if (lower.includes('dsnr') || lower.includes('dilsukhnagar') || lower.includes('dilshuknagar')) {
+-          branchVariations.add('Dilshuknagar');
+-          branchVariations.add('Dilshuknagar Branch');
+-          branchVariations.add('Dilsukhnagar');
+-        } else if (lower.includes('nallagandla')) {
+-          branchVariations.add('Nallagandla');
+-          branchVariations.add('Nallagandla Branch');
+-        }
++        if (lower.includes('kphb')) { branchVariations.add('KPHB'); branchVariations.add('KPHB Branch'); }
++        else if (lower.includes('chnr') || lower.includes('chandanagar') || lower.includes('chandnagar')) { branchVariations.add('Chandnagar'); branchVariations.add('Chandnagar Branch'); branchVariations.add('Chandanagar'); branchVariations.add('CHANDNAGAR'); }
++        else if (lower.includes('dsnr') || lower.includes('dilsukhnagar') || lower.includes('dilshuknagar')) { branchVariations.add('Dilshuknagar'); branchVariations.add('Dilshuknagar Branch'); branchVariations.add('Dilsukhnagar'); }
++        else if (lower.includes('nallagandla')) { branchVariations.add('Nallagandla'); branchVariations.add('Nallagandla Branch'); }
+       };
+ 
+       checkAndAdd(userData.branchId);
+       checkAndAdd(userData.branchName);
+       const branchNames = Array.from(branchVariations);
+ 
+-      // 1. Subscribe to walk-in registrations from 'patients' for the selected date
+-      const qPatients = query(
+-        collection(db, 'patients'),
+-        where('branchId', 'in', branchNames),
+-        where('appointmentDate', '==', targetSlashDate)
+-      );
+-
+-      unsubPatients = onSnapshot(qPatients, (snap) => {
++      const qPatients = query(collection(db, 'patients'), where('branchId', 'in', branchNames), where('appointmentDate', '==', targetSlashDate));
++      unsubPatientsToday = onSnapshot(qPatients, (snap) => {
+         const list = [];
+-        snap.forEach(doc => {
+-          list.push({ id: doc.id, ...doc.data(), _type: 'walkin', firestoreCollection: 'patients' });
+-        });
+-        latestWalkins = list;
++        snap.forEach(doc => { list.push({ id: doc.id, ...doc.data(), _type: 'walkin', firestoreCollection: 'patients' }); });
++        latestWalkinsToday = list;
+         combineAndSet();
+-      }, (error) => {
+-        console.error("Reception patients snapshot error:", error);
+       });
+ 
+-      // 2. Subscribe to online bookings from 'appointments' for the selected date
+-      const qAppts = query(
+-        collection(db, 'appointments'),
+-        where('branchId', 'in', branchNames),
+-        where('dateString', '==', targetDashDate)
+-      );
++      if (ySlashDate) {
++        const qPatientsYest = query(collection(db, 'patients'), where('branchId', 'in', branchNames), where('appointmentDate', '==', ySlashDate));
++        unsubPatientsYest = onSnapshot(qPatientsYest, (snap) => {
++          const list = [];
++          snap.forEach(doc => { list.push({ id: doc.id, ...doc.data(), _type: 'walkin', firestoreCollection: 'patients' }); });
++          latestWalkinsYest = list;
++          combineAndSet();
++        });
++      }
+ 
+-      unsubAppointments = onSnapshot(qAppts, (snap) => {
++      const qAppts = query(collection(db, 'appointments'), where('branchId', 'in', branchNames), where('dateString', '==', targetDashDate));
++      unsubApptsToday = onSnapshot(qAppts, (snap) => {
+         const list = [];
+         snap.forEach(doc => {
+           const appt = doc.data();
+@@ -1561,36 +1557,39 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
+           let formattedDate = appt.dateString || appt.date || 'No Date';
+           if (formattedDate.includes('-')) {
+             const parts = formattedDate.split('-');
+-            if (parts.length === 3) {
+-              formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
+-            }
++            if (parts.length === 3) formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
+           }
+-          list.push({
+-            ...appt,
+-            id: doc.id,
+-            _type: 'online',
+-            firestoreCollection: 'appointments',
+-            fullName: appt.patientName || 'Online Patient',
+-            regId: 'ONLINE',
+-            phone: appt.phone || 'N/A',
+-            email: appt.email || '',
+-            appointmentDate: formattedDate,
+-            appointmentTime: appt.timeSlot || 'N/A',
+-            doctor: appt.doctorName ? (appt.doctorName.startsWith('Dr.') ? appt.doctorName : `Dr. ${appt.doctorName}`) : 'General Doctor',
+-            status: appt.status === 'pending' ? 'waiting' : (appt.status || 'waiting'),
+-            createdAt: appt.createdAt
+-          });
++          list.push({ ...appt, id: doc.id, _type: 'online', firestoreCollection: 'appointments', fullName: appt.patientName || 'Online Patient', regId: 'ONLINE', phone: appt.phone || 'N/A', email: appt.email || '', appointmentDate: formattedDate, appointmentTime: appt.timeSlot || 'N/A', doctor: appt.doctorName ? (appt.doctorName.startsWith('Dr.') ? appt.doctorName : `Dr. ${appt.doctorName}`) : 'General Doctor', status: appt.status === 'pending' ? 'waiting' : (appt.status || 'waiting'), createdAt: appt.createdAt });
+         });
+-        latestOnline = list;
++        latestOnlineToday = list;
+         combineAndSet();
+-      }, (error) => {
+-        console.error("Reception appointments snapshot error:", error);
+       });
++
++      if (yDashDate) {
++        const qApptsYest = query(collection(db, 'appointments'), where('branchId', 'in', branchNames), where('dateString', '==', yDashDate));
++        unsubApptsYest = onSnapshot(qApptsYest, (snap) => {
++          const list = [];
++          snap.forEach(doc => {
++            const appt = doc.data();
++            if (appt.checkedInAt) return;
++            let formattedDate = appt.dateString || appt.date || 'No Date';
++            if (formattedDate.includes('-')) {
++              const parts = formattedDate.split('-');
++              if (parts.length === 3) formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
++            }
++            list.push({ ...appt, id: doc.id, _type: 'online', firestoreCollection: 'appointments', fullName: appt.patientName || 'Online Patient', regId: 'ONLINE', phone: appt.phone || 'N/A', email: appt.email || '', appointmentDate: formattedDate, appointmentTime: appt.timeSlot || 'N/A', doctor: appt.doctorName ? (appt.doctorName.startsWith('Dr.') ? appt.doctorName : `Dr. ${appt.doctorName}`) : 'General Doctor', status: appt.status === 'pending' ? 'waiting' : (appt.status || 'waiting'), createdAt: appt.createdAt });
++          });
++          latestOnlineYest = list;
++          combineAndSet();
++        });
++      }
+     }
+ 
+     return () => {
+-      unsubPatients();
+-      unsubAppointments();
++      unsubPatientsToday();
++      unsubApptsToday();
++      unsubPatientsYest();
++      unsubApptsYest();
+       if (unsubscribeTarget) unsubscribeTarget();
+     };
+   }, [userData, dashboardDate]);
+@@ -2111,6 +2110,11 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
+               includeDiet: includeDiet,
+               activeDietPlanId: includeDiet ? activeDietPlanId : null,
+               pendingAmount: Number(payLaterAmount) || 0,
++              ...(includeMedicine ? {
++                medicineFeeStatus: 'paid',
++                medicineFeeCollectedAt: serverTimestamp(),
++                medicineFeeMethod: 'split'
++              } : {}),
+               status: currentStatus === 'completed' ? 'done' : (currentStatus === 'pending' ? 'waiting' : currentStatus)
+             });
+ 
+@@ -2249,6 +2253,11 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
+         itemsPaid: itemsPaid,
+         includeDiet: includeDiet,
+         pendingAmount: Number(payLaterAmount) || 0,
++        ...(includeMedicine ? {
++          medicineFeeStatus: 'paid',
++          medicineFeeCollectedAt: serverTimestamp(),
++          medicineFeeMethod: usedMethod
++        } : {}),
+         ...(usedMethod === 'split' ? {
+           paymentSplitDetails: {
+             [splitMethod1]: split1Amt,
+@@ -2271,7 +2280,18 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
+             paymentId: razorpayPaymentId || 'WALKIN_' + usedMethod.toUpperCase(),
+             itemsPaid: itemsPaid,
+             includeDiet: includeDiet,
+-            pendingAmount: Number(payLaterAmount) || 0
++            pendingAmount: Number(payLaterAmount) || 0,
++            ...(includeMedicine ? {
++              medicineFeeStatus: 'paid',
++              medicineFeeCollectedAt: serverTimestamp(),
++              medicineFeeMethod: usedMethod
++            } : {}),
++            ...(usedMethod === 'split' ? {
++              paymentSplitDetails: {
++                [splitMethod1]: split1Amt,
++                [splitMethod2]: split2Amt
++              }
++            } : {})
+           });
+         } catch (apptSyncErr) {
+           console.warn("Could not sync corresponding appointment payment:", apptSyncErr);
+@@ -2679,6 +2699,16 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
+     }
+   };
+   const [dashRescheduleModalVisible, setDashRescheduleModalVisible] = React.useState(false);
++
++  const [statModalVisible, setStatModalVisible] = React.useState(false);
++  const [statModalTitle, setStatModalTitle] = React.useState('');
++  const [statModalData, setStatModalData] = React.useState([]);
++
++  const handleStatClick = (title, filterFn) => {
++    setStatModalTitle(title);
++    setStatModalData(todayPatientsFiltered.filter(filterFn));
++    setStatModalVisible(true);
++  };
+   const [dashRescheduleItem, setDashRescheduleItem] = React.useState(null);
+   const [dashRescheduleDate, setDashRescheduleDate] = React.useState(new Date());
+   const [showDashRescheduleDatePicker, setShowDashRescheduleDatePicker] = React.useState(false);
+@@ -2826,7 +2856,19 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
+     return false;
+   };
+ 
+-  const todayPatientsFiltered = todayPatients.filter(p => isMatchingDate(p.appointmentDate, dashboardDate));
++  const todayPatientsFiltered = todayPatients.filter(p => {
++    const isToday = isMatchingDate(p.appointmentDate, dashboardDate);
++    let isYesterday = false;
++    try {
++      const dbDate = new Date(dashboardDate);
++      const today = new Date();
++      if (dbDate.getDate() === today.getDate() && dbDate.getMonth() === today.getMonth() && dbDate.getFullYear() === today.getFullYear()) {
++        const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
++        isYesterday = isMatchingDate(p.appointmentDate, yesterday.toISOString().split('T')[0]);
++      }
++    } catch (e) { }
++    return isToday || isYesterday;
++  });
+ 
+   // DOCTOR SPECIFIC COUNTS
+   const doctorPatients = todayPatientsFiltered.filter(p => {
+@@ -2849,7 +2891,8 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
+ 
+   const waitingCount = todayPatientsFiltered.filter(p => p.status === 'waiting').length;
+   const inConsultationCount = todayPatientsFiltered.filter(p => p.status === 'in-consultation').length;
+-  const completedCount = todayPatientsFiltered.filter(p => p.status === 'completed').length;
++  const completedPaidCount = todayPatientsFiltered.filter(p => p.status === 'completed' || p.status === 'done').length;
++  const completedUnpaidCount = todayPatientsFiltered.filter(p => p.status === 'completed' && p.paymentStatus !== 'paid').length;
+   const doneCount = todayPatientsFiltered.filter(p => p.status === 'completed' || p.status === 'done' || p.doctorStatus === 'prescribed').length;
+   const followUpOptedCount = todayPatientsFiltered.filter(p => (p.status === 'completed' || p.status === 'done' || p.doctorStatus === 'prescribed') && p.followUpInterval && p.followUpInterval !== 'No Follow-up' && p.followUpInterval !== '').length;
+   const followUpNotOptedCount = doneCount - followUpOptedCount;
+@@ -2994,6 +3037,61 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
+         </Modal>
+       )}
+ 
++      {/* Stat Detail Full Screen */}
++      <Modal visible={statModalVisible} transparent={false} animationType="slide" presentationStyle="fullScreen">
++        <SafeAreaView style={{ flex: 1, backgroundColor: '#f8fafc' }} edges={['top']}>
++          <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#e2e8f0', elevation: 2 }}>
++            <TouchableOpacity onPress={() => setStatModalVisible(false)} style={{ padding: 4 }}>
++              <ChevronLeft size={24} color="#0f172a" />
++            </TouchableOpacity>
++            <Text style={{ fontSize: 18, fontWeight: '800', color: '#0f172a', marginLeft: 12 }}>{statModalTitle}</Text>
++          </View>
++
++          <ScrollView contentContainerStyle={{ padding: 16 }} showsVerticalScrollIndicator={false}>
++            {statModalData.length === 0 ? (
++              <View style={{ alignItems: 'center', marginTop: 40 }}>
++                <Text style={{ textAlign: 'center', color: '#64748b', fontSize: 16 }}>No patients found.</Text>
++              </View>
++            ) : (
++              statModalData.map((patient, index) => (
++                <TouchableOpacity
++                  key={patient.id || index}
++                  style={{ padding: 16, backgroundColor: '#fff', borderRadius: 12, marginBottom: 12, borderWidth: 1, borderColor: '#e2e8f0', elevation: 1 }}
++                  onPress={() => {
++                    setStatModalVisible(false);
++                    navigation.navigate('PatientDetails', { patientId: patient.id });
++                  }}
++                >
++                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
++                    <Avatar.Text
++                      size={36}
++                      label={patient.fullName ? patient.fullName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : (patient.patientName ? patient.patientName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : 'P')}
++                      style={{ backgroundColor: '#a8ce3a' + '20', marginRight: 12 }}
++                      labelStyle={{ color: '#a8ce3a', fontWeight: '800', fontSize: 14 }}
++                    />
++                    <View style={{ flex: 1 }}>
++                      <Text style={{ fontSize: 16, fontWeight: '700', color: '#0f172a' }} numberOfLines={1}>{patient.fullName || patient.patientName || 'Patient'}</Text>
++                      <Text style={{ fontSize: 13, color: '#64748b', marginTop: 2 }}>{(patient.status || 'Unknown').toUpperCase()}</Text>
++                    </View>
++                  </View>
++
++                  <View style={{ flexDirection: 'row', marginTop: 4, flexWrap: 'wrap' }}>
++                    <View style={{ flexDirection: 'row', alignItems: 'center', width: '50%', marginBottom: 6 }}>
++                      <Phone size={14} color="#64748b" style={{ marginRight: 6 }} />
++                      <Text style={{ fontSize: 13, color: '#475569' }}>{patient.phone || 'N/A'}</Text>
++                    </View>
++                    <View style={{ flexDirection: 'row', alignItems: 'center', width: '50%', marginBottom: 6 }}>
++                      <Stethoscope size={14} color="#64748b" style={{ marginRight: 6 }} />
++                      <Text style={{ fontSize: 13, color: '#475569' }} numberOfLines={1}>{patient.doctor || patient.doctorName || 'N/A'}</Text>
++                    </View>
++                  </View>
++                </TouchableOpacity>
++              ))
++            )}
++          </ScrollView>
++        </SafeAreaView>
++      </Modal>
++
+       {/* Receptionist: Reschedule Modal */}
+       <Modal visible={dashRescheduleModalVisible} transparent animationType="slide">
+         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+@@ -3126,12 +3224,12 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
+             </View>
+ 
+             {/* Monthly Target Display */}
+-            {monthlyTarget && (() => {
++            {monthlyTarget ? (() => {
+               const targetNum = Number(monthlyTarget) || 0;
+               const reachedNum = Number(targetReached) || 0;
+               const remaining = Math.max(targetNum - reachedNum, 0);
+               const isReached = reachedNum >= targetNum;
+-              
++
+               const today = new Date();
+               const nextWeek = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 7);
+               const isLastWeek = nextWeek.getMonth() !== today.getMonth();
+@@ -3162,7 +3260,7 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
+                       </View>
+                     )}
+                   </View>
+-                  
++
+                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#ffffff99', padding: 12, borderRadius: 8 }}>
+                     <View style={{ alignItems: 'center', flex: 1, paddingHorizontal: 2 }}>
+                       <Text style={{ fontSize: 10, fontWeight: '700', color: labelColor, textTransform: 'uppercase', marginBottom: 4 }} numberOfLines={1}>Target</Text>
+@@ -3181,7 +3279,7 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
+                   </View>
+                 </View>
+               );
+-            })()}
++            })() : null}
+ 
+             {showDashboardDatePicker && (
+               <DateTimePicker
+@@ -3200,39 +3298,57 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
+ 
+             {userData?.role !== 'staff' && (
+               <View style={[styles.receptionStatsRow, { marginBottom: 20 }]}>
+-                <Surface style={[styles.receptionStatCard, { borderLeftColor: COLORS.secondary, borderLeftWidth: 3 }]}>
+-                  <Text style={styles.receptionStatVal}>{todayPatientsFiltered.length}</Text>
+-                  <Text style={styles.receptionStatLabel} numberOfLines={1}>Booked</Text>
+-                </Surface>
+-                <Surface style={[styles.receptionStatCard, { borderLeftColor: '#f59e0b', borderLeftWidth: 3 }]}>
+-                  <Text style={[styles.receptionStatVal, { color: '#f59e0b' }]}>{waitingCount}</Text>
+-                  <Text style={styles.receptionStatLabel} numberOfLines={1}>Waiting</Text>
+-                </Surface>
+-                <Surface style={[styles.receptionStatCard, { borderLeftColor: '#0ea5e9', borderLeftWidth: 3 }]}>
+-                  <Text style={[styles.receptionStatVal, { color: '#0ea5e9' }]}>{inConsultationCount}</Text>
+-                  <Text style={styles.receptionStatLabel} numberOfLines={1}>In-Consult</Text>
+-                </Surface>
+-                <Surface style={[styles.receptionStatCard, { borderLeftColor: '#10b981', borderLeftWidth: 3 }]}>
+-                  <Text style={[styles.receptionStatVal, { color: '#10b981' }]}>{completedCount}</Text>
+-                  <Text style={styles.receptionStatLabel} numberOfLines={1}>Completed</Text>
+-                </Surface>
++                <TouchableOpacity style={{ flex: 1 }} onPress={() => handleStatClick('Booked', p => true)}>
++                  <Surface style={[styles.receptionStatCard, { flex: undefined, width: '100%', borderLeftColor: COLORS.secondary, borderLeftWidth: 3 }]}>
++                    <Text style={styles.receptionStatVal}>{todayPatientsFiltered.length}</Text>
++                    <Text style={styles.receptionStatLabel} numberOfLines={1}>Booked</Text>
++                  </Surface>
++                </TouchableOpacity>
++                <TouchableOpacity style={{ flex: 1 }} onPress={() => handleStatClick('Waiting', p => p.status === 'waiting')}>
++                  <Surface style={[styles.receptionStatCard, { flex: undefined, width: '100%', borderLeftColor: '#f59e0b', borderLeftWidth: 3 }]}>
++                    <Text style={[styles.receptionStatVal, { color: '#f59e0b' }]}>{waitingCount}</Text>
++                    <Text style={styles.receptionStatLabel} numberOfLines={1}>Waiting</Text>
++                  </Surface>
++                </TouchableOpacity>
++                <TouchableOpacity style={{ flex: 1 }} onPress={() => handleStatClick('In-Consult', p => p.status === 'in-consultation')}>
++                  <Surface style={[styles.receptionStatCard, { flex: undefined, width: '100%', borderLeftColor: '#0ea5e9', borderLeftWidth: 3 }]}>
++                    <Text style={[styles.receptionStatVal, { color: '#0ea5e9' }]}>{inConsultationCount}</Text>
++                    <Text style={styles.receptionStatLabel} numberOfLines={1}>In-Consult</Text>
++                  </Surface>
++                </TouchableOpacity>
++                <TouchableOpacity style={{ flex: 1 }} onPress={() => handleStatClick('Completed', p => p.status === 'completed' || p.status === 'done')}>
++                  <Surface style={[styles.receptionStatCard, { flex: undefined, width: '100%', borderLeftColor: '#10b981', borderLeftWidth: 3 }]}>
++                    <Text style={[styles.receptionStatVal, { color: '#10b981' }]}>{completedPaidCount}</Text>
++                    <Text style={styles.receptionStatLabel} numberOfLines={1}>Completed</Text>
++                  </Surface>
++                </TouchableOpacity>
+               </View>
+             )}
+ 
+             {userData?.role !== 'staff' && (
+               <View style={[styles.receptionStatsRow, { marginBottom: 12 }]}>
+-                <Surface style={[styles.receptionStatCardSmall, { borderLeftColor: '#6366f1', borderLeftWidth: 3 }]}>
+-                  <Text style={[styles.receptionStatValSmall, { color: '#6366f1' }]}>{doneCount}</Text>
+-                  <Text style={styles.receptionStatLabelSmall} numberOfLines={2}>Appointments Completed</Text>
+-                </Surface>
+-                <Surface style={[styles.receptionStatCardSmall, { borderLeftColor: '#8b5cf6', borderLeftWidth: 3 }]}>
+-                  <Text style={[styles.receptionStatValSmall, { color: '#8b5cf6' }]}>{followUpOptedCount}</Text>
+-                  <Text style={styles.receptionStatLabelSmall} numberOfLines={2}>Follow-up Opted</Text>
+-                </Surface>
+-                <Surface style={[styles.receptionStatCardSmall, { borderLeftColor: '#ef4444', borderLeftWidth: 3 }]}>
+-                  <Text style={[styles.receptionStatValSmall, { color: '#ef4444' }]}>{followUpNotOptedCount}</Text>
+-                  <Text style={styles.receptionStatLabelSmall} numberOfLines={2}>Follow-up Not Opted</Text>
+-                </Surface>
++                <TouchableOpacity style={{ flex: 1 }} onPress={() => handleStatClick('Appointments Completed', p => p.status === 'completed' || p.status === 'done' || p.doctorStatus === 'prescribed')}>
++                  <Surface style={[styles.receptionStatCardSmall, { flex: undefined, width: '100%', borderLeftColor: '#6366f1', borderLeftWidth: 3 }]}>
++                    <Text style={[styles.receptionStatValSmall, { color: '#6366f1' }]}>{doneCount}</Text>
++                    <Text style={styles.receptionStatLabelSmall} numberOfLines={2}>Appointments Completed</Text>
++                  </Surface>
++                </TouchableOpacity>
++                <TouchableOpacity style={{ flex: 1 }} onPress={() => handleStatClick('Follow-up Opted', p => (p.status === 'completed' || p.status === 'done' || p.doctorStatus === 'prescribed') && p.followUpInterval && p.followUpInterval !== 'No Follow-up' && p.followUpInterval !== '')}>
++                  <Surface style={[styles.receptionStatCardSmall, { flex: undefined, width: '100%', borderLeftColor: '#8b5cf6', borderLeftWidth: 3 }]}>
++                    <Text style={[styles.receptionStatValSmall, { color: '#8b5cf6' }]}>{followUpOptedCount}</Text>
++                    <Text style={styles.receptionStatLabelSmall} numberOfLines={2}>Follow-up Opted</Text>
++                  </Surface>
++                </TouchableOpacity>
++                <TouchableOpacity style={{ flex: 1 }} onPress={() => handleStatClick('Follow-up Not Opted', p => {
++                  const isDone = p.status === 'completed' || p.status === 'done' || p.doctorStatus === 'prescribed';
++                  const isOpted = p.followUpInterval && p.followUpInterval !== 'No Follow-up' && p.followUpInterval !== '';
++                  return isDone && !isOpted;
++                })}>
++                  <Surface style={[styles.receptionStatCardSmall, { flex: undefined, width: '100%', borderLeftColor: '#ef4444', borderLeftWidth: 3 }]}>
++                    <Text style={[styles.receptionStatValSmall, { color: '#ef4444' }]}>{followUpNotOptedCount}</Text>
++                    <Text style={styles.receptionStatLabelSmall} numberOfLines={2}>Follow-up Not Opted</Text>
++                  </Surface>
++                </TouchableOpacity>
+               </View>
+             )}
+ 
+@@ -3392,7 +3508,7 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
+ 
+             {/* 1.5. IN CONSULTATION SECTION */}
+             <View style={[styles.sectionHeader, { marginTop: 24 }]}>
+-              <Text style={styles.sectionTitleMain}>Active Consultations ({inConsultationCount + completedCount})</Text>
++              <Text style={styles.sectionTitleMain}>Active Consultations ({inConsultationCount + completedUnpaidCount})</Text>
+             </View>
+ 
+             {patientsLoading ? (
+@@ -3501,19 +3617,18 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
+ 
+             {/* 2. COMPLETED TODAY SECTION */}
+             <View style={[styles.sectionHeader, { marginTop: 24 }]}>
+-              <Text style={styles.sectionTitleMain}>Completed Appointments Today ({completedCount})</Text>
++              <Text style={styles.sectionTitleMain}>Completed Appointments Today ({completedPaidCount})</Text>
+             </View>
+ 
+             {patientsLoading ? (
+               <ActivityIndicator color={COLORS.primary} style={{ marginVertical: 16 }} />
+-            ) : todayPatientsFiltered.filter(p => (p.status === 'completed' || p.status === 'done') && p.paymentStatus === 'paid').length === 0 ? (
++            ) : todayPatientsFiltered.filter(p => p.status === 'completed' || p.status === 'done').length === 0 ? (
+               <Surface style={styles.emptyQueueCardMini}>
+                 <Text style={styles.emptyQueueTextMini}>No completed appointments today yet.</Text>
+               </Surface>
+             ) : (
+               todayPatientsFiltered
+-                .filter(p => (p.status === 'completed' || p.status === 'done') && p.paymentStatus === 'paid')
+-                .slice(0, 5)
++                .filter(p => p.status === 'completed' || p.status === 'done')
+                 .map(patient => (
+                   <Surface key={patient.id} style={styles.queueItemCard}>
+                     <View style={styles.queueHeader}>
+@@ -4216,7 +4331,7 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
+                     <Text style={[styles.bookingMiniVal, { color: '#8b5cf6' }]}>{hrCalculatedStats.upcomingBookings}</Text>
+                     <Text style={styles.bookingMiniLabel}>Upcoming</Text>
+                   </View>
+-                  
++
+                   {/* Selected Date Bookings Card */}
+                   <View style={[styles.bookingMiniCard, { flex: 2, minWidth: (SCREEN_W - 88) * 0.6, backgroundColor: '#f0fdf4', borderColor: '#bbf7d0' }]}>
+                     <Text style={[styles.bookingMiniVal, { color: COLORS.success }]}>{hrCalculatedStats.selectedDateBookings}</Text>
+@@ -4258,7 +4373,7 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
+                       Patient: <Text style={{ color: COLORS.text, fontWeight: '700' }}>{selectedPatientForPayment?.fullName || selectedPatientForPayment?.patientName}</Text>
+                     </Text>
+ 
+-                    {/* Consultation Only Row */}
++                    {/* Consultation Row */}
+                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                       <TouchableOpacity
+                         style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
+@@ -4290,7 +4405,7 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
+                         }}>
+                           {includeConsultation && <Text style={{ color: '#fff', fontSize: 10, fontWeight: 'bold' }}>Γ£ô</Text>}
+                         </View>
+-                        <Text style={{ fontSize: 13, color: COLORS.text, fontWeight: '600' }}>Consultation Only</Text>
++                        <Text style={{ fontSize: 13, color: COLORS.text, fontWeight: '600' }}>Consultation</Text>
+                       </TouchableOpacity>
+                       {includeConsultation && (
+                         <RNTextInput
+@@ -4390,89 +4505,89 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
+                     {/* Itemized Medicines Row */}
+                     <View style={{ marginTop: 12, padding: 12, backgroundColor: '#f8fafc', borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0', marginBottom: 12 }}>
+                       <Text style={{ fontSize: 14, fontWeight: '700', color: COLORS.text, marginBottom: 8 }}>Medicines Details</Text>
+-                        
+-                        <View style={{ marginBottom: 12 }}>
+-                          <Text style={{ fontSize: 12, color: COLORS.muted, marginBottom: 4 }}>Duration for all:</Text>
+-                          <PaperMenu
+-                            visible={openDurationMenuIndex === 'global'}
+-                            onDismiss={() => setOpenDurationMenuIndex(null)}
+-                            contentStyle={{ backgroundColor: '#ffffff', borderRadius: 8 }}
+-                            anchor={
+-                              <TouchableOpacity style={{ width: '100%' }} onPress={() => !showBlockMessage && setOpenDurationMenuIndex('global')}>
+-                                <View pointerEvents="none" style={{ width: '100%' }}>
+-                                  <TextInput mode="outlined" dense value={prescriptionDuration} style={{ backgroundColor: 'white', width: '100%', fontSize: 13 }} activeOutlineColor={COLORS.secondary} editable={false} />
+-                                </View>
++
++                      <View style={{ marginBottom: 12 }}>
++                        <Text style={{ fontSize: 12, color: COLORS.muted, marginBottom: 4 }}>Duration for all:</Text>
++                        <PaperMenu
++                          visible={openDurationMenuIndex === 'global'}
++                          onDismiss={() => setOpenDurationMenuIndex(null)}
++                          contentStyle={{ backgroundColor: '#ffffff', borderRadius: 8 }}
++                          anchor={
++                            <TouchableOpacity style={{ width: '100%' }} onPress={() => !showBlockMessage && setOpenDurationMenuIndex('global')}>
++                              <View pointerEvents="none" style={{ width: '100%' }}>
++                                <TextInput mode="outlined" dense value={prescriptionDuration} style={{ backgroundColor: 'white', width: '100%', fontSize: 13 }} activeOutlineColor={COLORS.secondary} editable={false} />
++                              </View>
++                            </TouchableOpacity>
++                          }
++                        >
++                          <ScrollView style={{ maxHeight: 200 }} keyboardShouldPersistTaps="handled">
++                            {["15 Days", "1 Month", "2 Months", "3 Months", "4 Months", "5 Months", "6 Months"].map(opt => (
++                              <PaperMenu.Item key={opt} onPress={() => { setPrescriptionDuration(opt); setOpenDurationMenuIndex(null); }} title={opt} titleStyle={{ fontSize: 13, color: COLORS.text }} />
++                            ))}
++                          </ScrollView>
++                        </PaperMenu>
++                      </View>
++
++                      {medicines.map((med, index) => (
++                        <View key={index} style={{ backgroundColor: '#ffffff', padding: 8, borderRadius: 6, marginBottom: 8, borderWidth: 1, borderColor: '#cbd5e1', flexDirection: 'column', gap: 6 }}>
++                          <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
++                            <TextInput mode="outlined" dense label="Medicine Name" value={med.name} onChangeText={(val) => handleMedicineChange(index, 'name', val)} style={{ flex: 1, backgroundColor: 'white', height: 40, fontSize: 13 }} activeOutlineColor={COLORS.secondary} editable={!showBlockMessage} />
++                            {!showBlockMessage && (
++                              <TouchableOpacity onPress={() => handleRemoveMedicineRow(index)} style={{ padding: 4 }}>
++                                <Trash2 size={18} color={COLORS.danger} />
+                               </TouchableOpacity>
+-                            }
+-                          >
+-                            <ScrollView style={{ maxHeight: 200 }} keyboardShouldPersistTaps="handled">
+-                              {["15 Days", "1 Month", "2 Months", "3 Months", "4 Months", "5 Months", "6 Months"].map(opt => (
+-                                <PaperMenu.Item key={opt} onPress={() => { setPrescriptionDuration(opt); setOpenDurationMenuIndex(null); }} title={opt} titleStyle={{ fontSize: 13, color: COLORS.text }} />
+-                              ))}
+-                            </ScrollView>
+-                          </PaperMenu>
+-                        </View>
++                            )}
++                          </View>
+ 
+-                        {medicines.map((med, index) => (
+-                          <View key={index} style={{ backgroundColor: '#ffffff', padding: 8, borderRadius: 6, marginBottom: 8, borderWidth: 1, borderColor: '#cbd5e1', flexDirection: 'column', gap: 6 }}>
+-                            <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+-                              <TextInput mode="outlined" dense label="Medicine Name" value={med.name} onChangeText={(val) => handleMedicineChange(index, 'name', val)} style={{ flex: 1, backgroundColor: 'white', height: 40, fontSize: 13 }} activeOutlineColor={COLORS.secondary} editable={!showBlockMessage} />
+-                              {!showBlockMessage && (
+-                                <TouchableOpacity onPress={() => handleRemoveMedicineRow(index)} style={{ padding: 4 }}>
+-                                  <Trash2 size={18} color={COLORS.danger} />
+-                                </TouchableOpacity>
+-                              )}
++                          <View style={{ flexDirection: 'row', gap: 6 }}>
++                            <View style={{ flex: 1 }}>
++                              <PaperMenu
++                                visible={openTypeMenuIndex === index}
++                                onDismiss={() => setOpenTypeMenuIndex(null)}
++                                contentStyle={{ backgroundColor: '#ffffff', borderRadius: 8 }}
++                                anchor={
++                                  <TouchableOpacity style={{ width: '100%' }} onPress={() => !showBlockMessage && setOpenTypeMenuIndex(index)}>
++                                    <View pointerEvents="none" style={{ width: '100%' }}>
++                                      <TextInput mode="outlined" dense label="Type" value={med.type} style={{ backgroundColor: 'white', width: '100%', height: 40, fontSize: 12 }} activeOutlineColor={COLORS.secondary} editable={false} />
++                                    </View>
++                                  </TouchableOpacity>
++                                }
++                              >
++                                <ScrollView style={{ maxHeight: 200 }} keyboardShouldPersistTaps="handled">
++                                  {["Tablet", "Drops", "Syrup", "Ointment", "Powder", "Injection"].map(opt => (
++                                    <PaperMenu.Item key={opt} onPress={() => { handleMedicineChange(index, 'type', opt); setOpenTypeMenuIndex(null); }} title={opt} titleStyle={{ fontSize: 12, color: COLORS.text }} />
++                                  ))}
++                                </ScrollView>
++                              </PaperMenu>
+                             </View>
+-
+-                            <View style={{ flexDirection: 'row', gap: 6 }}>
+-                              <View style={{ flex: 1 }}>
+-                                <PaperMenu
+-                                  visible={openTypeMenuIndex === index}
+-                                  onDismiss={() => setOpenTypeMenuIndex(null)}
+-                                  contentStyle={{ backgroundColor: '#ffffff', borderRadius: 8 }}
+-                                  anchor={
+-                                    <TouchableOpacity style={{ width: '100%' }} onPress={() => !showBlockMessage && setOpenTypeMenuIndex(index)}>
+-                                      <View pointerEvents="none" style={{ width: '100%' }}>
+-                                        <TextInput mode="outlined" dense label="Type" value={med.type} style={{ backgroundColor: 'white', width: '100%', height: 40, fontSize: 12 }} activeOutlineColor={COLORS.secondary} editable={false} />
+-                                      </View>
+-                                    </TouchableOpacity>
+-                                  }
+-                                >
+-                                  <ScrollView style={{ maxHeight: 200 }} keyboardShouldPersistTaps="handled">
+-                                    {["Tablet", "Drops", "Syrup", "Ointment", "Powder", "Injection"].map(opt => (
+-                                      <PaperMenu.Item key={opt} onPress={() => { handleMedicineChange(index, 'type', opt); setOpenTypeMenuIndex(null); }} title={opt} titleStyle={{ fontSize: 12, color: COLORS.text }} />
+-                                    ))}
+-                                  </ScrollView>
+-                                </PaperMenu>
+-                              </View>
+-                              <View style={{ flex: 1.5 }}>
+-                                <PaperMenu
+-                                  visible={openTimingMenuIndex === index}
+-                                  onDismiss={() => setOpenTimingMenuIndex(null)}
+-                                  contentStyle={{ backgroundColor: '#ffffff', borderRadius: 8 }}
+-                                  anchor={
+-                                    <TouchableOpacity style={{ width: '100%' }} onPress={() => !showBlockMessage && setOpenTimingMenuIndex(index)}>
+-                                      <View pointerEvents="none" style={{ width: '100%' }}>
+-                                        <TextInput mode="outlined" dense label="Dosage" value={med.dosage} style={{ backgroundColor: 'white', width: '100%', height: 40, fontSize: 12 }} activeOutlineColor={COLORS.secondary} editable={false} />
+-                                      </View>
+-                                    </TouchableOpacity>
+-                                  }
+-                                >
+-                                  <ScrollView style={{ maxHeight: 200 }} keyboardShouldPersistTaps="handled">
+-                                    {["1-0-0 (Morning)", "0-0-1 (Night)", "1-0-1 (Morning, Night)", "1-1-1 (Morning, Afternoon, Night)", "0-1-0 (Afternoon)", "1-1-0 (Morning, Afternoon)", "0-1-1 (Afternoon, Night)", "When Required (SOS)"].map(opt => (
+-                                      <PaperMenu.Item key={opt} onPress={() => { handleMedicineChange(index, 'dosage', opt); setOpenTimingMenuIndex(null); }} title={opt} titleStyle={{ fontSize: 12, color: COLORS.text }} />
+-                                    ))}
+-                                  </ScrollView>
+-                                </PaperMenu>
+-                              </View>
++                            <View style={{ flex: 1.5 }}>
++                              <PaperMenu
++                                visible={openTimingMenuIndex === index}
++                                onDismiss={() => setOpenTimingMenuIndex(null)}
++                                contentStyle={{ backgroundColor: '#ffffff', borderRadius: 8 }}
++                                anchor={
++                                  <TouchableOpacity style={{ width: '100%' }} onPress={() => !showBlockMessage && setOpenTimingMenuIndex(index)}>
++                                    <View pointerEvents="none" style={{ width: '100%' }}>
++                                      <TextInput mode="outlined" dense label="Dosage" value={med.dosage} style={{ backgroundColor: 'white', width: '100%', height: 40, fontSize: 12 }} activeOutlineColor={COLORS.secondary} editable={false} />
++                                    </View>
++                                  </TouchableOpacity>
++                                }
++                              >
++                                <ScrollView style={{ maxHeight: 200 }} keyboardShouldPersistTaps="handled">
++                                  {["1-0-0 (Morning)", "0-0-1 (Night)", "1-0-1 (Morning, Night)", "1-1-1 (Morning, Afternoon, Night)", "0-1-0 (Afternoon)", "1-1-0 (Morning, Afternoon)", "0-1-1 (Afternoon, Night)", "When Required (SOS)"].map(opt => (
++                                    <PaperMenu.Item key={opt} onPress={() => { handleMedicineChange(index, 'dosage', opt); setOpenTimingMenuIndex(null); }} title={opt} titleStyle={{ fontSize: 12, color: COLORS.text }} />
++                                  ))}
++                                </ScrollView>
++                              </PaperMenu>
+                             </View>
+                           </View>
+-                        ))}
+-                        {!showBlockMessage && (
+-                          <TouchableOpacity onPress={handleAddMedicineRow} style={{ alignSelf: 'flex-start', marginVertical: 4 }}>
+-                            <Text style={{ color: COLORS.secondary, fontSize: 13, fontWeight: 'bold' }}>+ Add Row</Text>
+-                          </TouchableOpacity>
+-                        )}
++                        </View>
++                      ))}
++                      {!showBlockMessage && (
++                        <TouchableOpacity onPress={handleAddMedicineRow} style={{ alignSelf: 'flex-start', marginVertical: 4 }}>
++                          <Text style={{ color: COLORS.secondary, fontSize: 13, fontWeight: 'bold' }}>+ Add Row</Text>
++                        </TouchableOpacity>
++                      )}
+                     </View>
+ 
+                     {/* Previous Pending Amount Display */}

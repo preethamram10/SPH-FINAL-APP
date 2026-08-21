@@ -1,0 +1,57 @@
+{
+  "expo": {
+    "name": "Spiritual Homeo Staff",
+    "slug": "sph-staff-app",
+    "version": "1.0.1",
+    "orientation": "portrait",
+    "icon": "./assets/App icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.spiritualhomeo.staff",
+      "googleServicesFile": "./GoogleService-Info.plist"
+    },
+    "android": {
+      "package": "com.spiritualhomeo.staff",
+      "versionCode": 2,
+      "googleServicesFile": "./google-services.json",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/App icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "POST_NOTIFICATIONS"
+      ]
+    },
+    "plugins": [
+      "@react-native-community/datetimepicker",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/Noti icon.png",
+          "color": "#258ec8"
+        }
+      ],
+      [
+        "expo-status-bar",
+        {
+          "backgroundColor": "#00000000",
+          "barStyle": "dark-content"
+        }
+      ],
+      "expo-sharing"
+    ],
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "owner": "preetham.avala",
+    "extra": {
+      "eas": {
+        "projectId": "b9eb7f62-b93a-45ab-8c2d-e2bec37a28d4"
+      }
+    }
+  }
+}

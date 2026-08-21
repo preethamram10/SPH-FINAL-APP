@@ -1,0 +1,1156 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import { View, StyleSheet, ScrollView, TouchableOpacity, FlatList, Dimensions, ActivityIndicator, Modal, TextInput, Platform } from 'react-native';
+import { Text, Surface, Avatar } from 'react-native-paper';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { db } from '../../firebase';
+import { collection, query, onSnapshot, where, getDocs } from 'firebase/firestore';
+import { ChevronLeft, Search, X, RefreshCw, Filter, Calendar, RotateCcw, ChevronDown, CheckCircle2, Circle } from 'lucide-react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
+const { width: SCREEN_W } = Dimensions.get('window');
+const COLORS = {
+  primary: '#a8ce3a',
+  secondary: '#258ec8',
+  text: '#1e293b',
+  muted: '#64748b',
+  background: '#f8fafc',
+  white: '#ffffff',
+  border: '#e2e8f0',
+  success: '#10b981',
+  warning: '#f59e0b',
+  danger: '#ef4444',
+  purple: '#8b5cf6',
+};
+const PATIENT_SOURCES = [
+  'Walk-in',
+  'Instagram',
+  'Facebook',
+  'Website',
+  'Google',
+  'Online',
+  'Practo',
+  'Referral',
+  'Youtube'
+];
+
+const MONTHS = [
+  { val: '1', label: 'January' },
+  { val: '2', label: 'February' },
+  { val: '3', label: 'March' },
+  { val: '4', label: 'April' },
+  { val: '5', label: 'May' },
+  { val: '6', label: 'June' },
+  { val: '7', label: 'July' },
+  { val: '8', label: 'August' },
+  { val: '9', label: 'September' },
+  { val: '10', label: 'October' },
+  { val: '11', label: 'November' },
+  { val: '12', label: 'December' }
+];
+
+const parseHTMLDateToDateObj = (dateStr) => {
+  if (!dateStr) return null;
+  const parts = dateStr.split('-');
+  if (parts.length === 3) {
+    return new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+  }
+  return null;
+};
+
+const parseGBDateToDateObj = (dateStr) => {
+  if (!dateStr) return null;
+  const parts = dateStr.split('/');
+  if (parts.length === 3) {
+    return new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
+  }
+  return null;
+};
+
+const RevenueDashboard = ({ navigation }) => {
+  const [loading, setLoading] = useState(true);
+  const [patients, setPatients] = useState([]);
+  const [branches, setBranches] = useState([]);
+  const [medicineForms, setMedicineForms] = useState([]);
+
+  // Collapsible breakdown states
+  const [branchBreakdownExpanded, setBranchBreakdownExpanded] = useState(false);
+  const [doctorBreakdownExpanded, setDoctorBreakdownExpanded] = useState(false);
+
+  // Filter States
+  const [revenueSearch, setRevenueSearch] = useState('');
+  const [revenueBranchId, setRevenueBranchId] = useState('all');
+  const [revenueDate, setRevenueDate] = useState(''); // YYYY-MM-DD
+  const [revenueYear, setRevenueYear] = useState('all');
+  const [revenueMonth, setRevenueMonth] = useState('all');
+  const [revenueSource, setRevenueSource] = useState('all');
+  const [revenueMethod, setRevenueMethod] = useState('all');
+
+  // Date Picker visibility
+  const [showDatePicker, setShowDatePicker] = useState(false);
+
+  // Dropdown Picker Modal
+  const [pickerVisible, setPickerVisible] = useState(false);
+  const [pickerType, setPickerType] = useState(''); // 'branch', 'year', 'month', 'source', 'method'
+
+  useEffect(() => {
+    // Fetch Branches once (few records, so it's fast)
+    const qBranches = query(collection(db, 'users'), where('role', '==', 'branch'));
+    const unsubBranches = onSnapshot(qBranches, (snap) => {
+      const list = [];
+      snap.forEach(doc => {
+        list.push({ id: doc.id, ...doc.data() });
+      });
+      setBranches(list);
+    });
+
+    const fetchData = async () => {
+      try {
+        const [patientsSnap, txSnap] = await Promise.all([
+          getDocs(query(collection(db, 'allpatients'))),
+          getDocs(query(collection(db, 'alltransactions')))
+        ]);
+
+        const revRecords = patientsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setPatients(revRecords);
+
+        const txList = txSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setMedicineForms(txList); // qMedicineForms was querying alltransactions too
+
+      } catch (err) {
+        console.error('Error fetching dashboard data:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+
+    return () => {
+      unsubBranches();
+    };
+  }, []);
+
+  const handleResetRevenueFilters = () => {
+    setRevenueSearch('');
+    setRevenueBranchId('all');
+    setRevenueDate('');
+    setRevenueYear('all');
+    setRevenueMonth('all');
+    setRevenueSource('all');
+    setRevenueMethod('all');
+  };
+
+  const filteredRevenuePatients = useMemo(() => {
+    return patients.filter(patient => {
+      // 1. Search term match (Name or Phone)
+      const matchesSearch = !revenueSearch.trim() ||
+        (patient.fullName && String(patient.fullName).toLowerCase().includes(revenueSearch.toLowerCase())) ||
+        (patient.phone && String(patient.phone).includes(revenueSearch.trim()));
+
+      // 2. Branch match
+      const selectedBranchName = branches.find(b => b.id === revenueBranchId)?.name;
+      const norm = (str) => (str || '').toString().trim().toLowerCase();
+      const matchesBranch = revenueBranchId === 'all' ||
+        patient.branchId === revenueBranchId ||
+        (patient.branchName && norm(patient.branchName) === norm(selectedBranchName));
+
+      // 3. Date / Month match
+      let matchesDateRange = true;
+      let rawDateStr = patient.paymentCollectedAt || patient.appointmentDate || patient.completedAt || patient.createdAt || patient.date;
+
+      if (rawDateStr) {
+        let d = null;
+        if (rawDateStr?.toDate) {
+          d = rawDateStr.toDate();
+        } else if (rawDateStr?.seconds) {
+          d = new Date(rawDateStr.seconds * 1000);
+        } else if (typeof rawDateStr === 'string') {
+          if (rawDateStr.includes('/')) {
+            d = parseGBDateToDateObj(rawDateStr);
+          } else if (rawDateStr.includes('-') && rawDateStr.split('-')[0].length === 4 && rawDateStr.length <= 10) {
+            d = parseHTMLDateToDateObj(rawDateStr);
+          } else {
+            d = new Date(rawDateStr);
+          }
+        } else {
+          d = new Date(rawDateStr);
+        }
+
+        if (d && !isNaN(d.getTime())) {
+          if (revenueDate) {
+            const filterDate = parseHTMLDateToDateObj(revenueDate);
+            if (filterDate) {
+              d.setHours(0, 0, 0, 0);
+              filterDate.setHours(0, 0, 0, 0);
+              if (d.getTime() !== filterDate.getTime()) matchesDateRange = false;
+            }
+          } else if (revenueYear !== 'all') {
+            if (d.getFullYear() !== parseInt(revenueYear, 10)) {
+              matchesDateRange = false;
+            } else if (revenueMonth !== 'all') {
+              if (d.getMonth() + 1 !== parseInt(revenueMonth, 10)) {
+                matchesDateRange = false;
+              }
+            }
+          }
+        } else {
+          if (revenueDate || revenueYear !== 'all') matchesDateRange = false;
+        }
+      } else {
+        if (revenueDate || revenueYear !== 'all') matchesDateRange = false;
+      }
+
+      // 4. Source Match
+      const matchesSource = revenueSource === 'all' || (patient.source || 'Walk-in') === revenueSource;
+
+      // 5. Payment Method match
+      const matchesMethod = revenueMethod === 'all' ||
+        (patient.paymentStatus === 'paid' && patient.paymentMethod === revenueMethod);
+
+      return matchesSearch && matchesBranch && matchesDateRange && matchesSource && matchesMethod;
+    });
+  }, [patients, branches, revenueSearch, revenueBranchId, revenueDate, revenueYear, revenueMonth, revenueSource, revenueMethod]);
+
+  // Calculations
+  const paidPatients = useMemo(() => {
+    return filteredRevenuePatients.filter(p => p.paymentStatus === 'paid');
+  }, [filteredRevenuePatients]);
+
+  const totalCollectedFees = useMemo(() => {
+    return paidPatients.reduce((sum, p) => sum + (Number(p.paymentAmount) || 0), 0);
+  }, [paidPatients]);
+
+  const cashCollected = useMemo(() => {
+    return paidPatients.filter(p => p.paymentMethod === 'cash').reduce((sum, p) => sum + (Number(p.paymentAmount) || 0), 0);
+  }, [paidPatients]);
+
+  const upiCollected = useMemo(() => {
+    return paidPatients.filter(p => p.paymentMethod === 'upi').reduce((sum, p) => sum + (Number(p.paymentAmount) || 0), 0);
+  }, [paidPatients]);
+
+  const cardCollected = useMemo(() => {
+    return paidPatients.filter(p => p.paymentMethod === 'card').reduce((sum, p) => sum + (Number(p.paymentAmount) || 0), 0);
+  }, [paidPatients]);
+
+  const topChannels = useMemo(() => {
+    const sourceStats = {};
+    paidPatients.forEach(p => {
+      const s = p.source || 'Walk-in';
+      sourceStats[s] = (sourceStats[s] || 0) + (Number(p.paymentAmount) || 0);
+    });
+    return Object.entries(sourceStats)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 4);
+  }, [paidPatients]);
+
+  const filteredMedicineForms = useMemo(() => {
+    return medicineForms.filter(form => {
+      // 1. Search term match (Patient Name or Phone)
+      const matchesSearch = !revenueSearch.trim() ||
+        (form.patientName && form.patientName.toLowerCase().includes(revenueSearch.toLowerCase())) ||
+        (form.phone && form.phone.includes(revenueSearch.trim()));
+
+      // 2. Branch match
+      const selectedBranchName = branches.find(b => b.id === revenueBranchId)?.name;
+      const matchesBranch = revenueBranchId === 'all' ||
+        form.branchId === revenueBranchId ||
+        (form.branchName && form.branchName === selectedBranchName);
+
+      // 3. Date / Month match
+      let matchesDateRange = true;
+      let rawDateStr = form.createdAt || form.formDate;
+
+      if (rawDateStr) {
+        let d = null;
+        if (rawDateStr?.toDate) {
+          d = rawDateStr.toDate();
+        } else if (typeof rawDateStr === 'string') {
+          if (rawDateStr.includes('/')) {
+            d = parseGBDateToDateObj(rawDateStr);
+          } else if (rawDateStr.includes('-') && rawDateStr.split('-')[0].length === 4 && rawDateStr.length <= 10) {
+            d = parseHTMLDateToDateObj(rawDateStr);
+          } else {
+            d = new Date(rawDateStr);
+          }
+        } else {
+          d = new Date(rawDateStr);
+        }
+
+        if (d && !isNaN(d.getTime())) {
+          if (revenueDate) {
+            const filterDate = parseHTMLDateToDateObj(revenueDate);
+            if (filterDate) {
+              d.setHours(0, 0, 0, 0);
+              filterDate.setHours(0, 0, 0, 0);
+              if (d.getTime() !== filterDate.getTime()) matchesDateRange = false;
+            }
+          } else if (revenueYear !== 'all') {
+            if (d.getFullYear() !== parseInt(revenueYear, 10)) {
+              matchesDateRange = false;
+            } else if (revenueMonth !== 'all') {
+              if (d.getMonth() + 1 !== parseInt(revenueMonth, 10)) {
+                matchesDateRange = false;
+              }
+            }
+          }
+        } else {
+          if (revenueDate || revenueYear !== 'all') matchesDateRange = false;
+        }
+      } else {
+        if (revenueDate || revenueYear !== 'all') matchesDateRange = false;
+      }
+
+      return matchesSearch && matchesBranch && matchesDateRange;
+    });
+  }, [medicineForms, branches, revenueSearch, revenueBranchId, revenueDate, revenueYear, revenueMonth]);
+
+  const subscriptionStats = useMemo(() => {
+    const totalRev = filteredMedicineForms.reduce((sum, f) => sum + (Number(f.amountPaid) || 0), 0);
+    const totalMonths = filteredMedicineForms.reduce((sum, f) => sum + (Number(f.duration) || 0), 0);
+    const avg = totalMonths > 0 ? (totalRev / totalMonths) : 0;
+    return { totalRev, totalMonths, avg };
+  }, [filteredMedicineForms]);
+
+  const branchWiseAvgRevenue = useMemo(() => {
+    const branchStats = {};
+    filteredMedicineForms.forEach(f => {
+      const bId = f.branchId || 'unknown';
+      const bName = f.branchName || 'Unknown Branch';
+      if (!branchStats[bId]) {
+        branchStats[bId] = { branchName: bName, revenue: 0, months: 0 };
+      }
+      branchStats[bId].revenue += (Number(f.amountPaid) || 0);
+      branchStats[bId].months += (Number(f.duration) || 0);
+    });
+
+    return Object.entries(branchStats).map(([branchId, stats]) => {
+      const avg = stats.months > 0 ? (stats.revenue / stats.months) : 0;
+      return {
+        branchId,
+        branchName: stats.branchName,
+        revenue: stats.revenue,
+        months: stats.months,
+        avg
+      };
+    }).sort((a, b) => b.revenue - a.revenue);
+  }, [filteredMedicineForms]);
+
+  const doctorWiseAvgRevenue = useMemo(() => {
+    const docStats = {};
+    filteredMedicineForms.forEach(f => {
+      const docName = f.doctorName || 'Unknown Doctor';
+      if (!docStats[docName]) {
+        docStats[docName] = { revenue: 0, months: 0 };
+      }
+      docStats[docName].revenue += (Number(f.amountPaid) || 0);
+      docStats[docName].months += (Number(f.duration) || 0);
+    });
+
+    return Object.entries(docStats).map(([doctorName, stats]) => {
+      const avg = stats.months > 0 ? (stats.revenue / stats.months) : 0;
+      return {
+        doctorName,
+        revenue: stats.revenue,
+        months: stats.months,
+        avg
+      };
+    }).sort((a, b) => b.revenue - a.revenue);
+  }, [filteredMedicineForms]);
+
+  // Modal selector items helper
+  const getPickerItems = () => {
+    if (pickerType === 'branch') {
+      return [{ id: 'all', name: 'All Branches' }, ...branches];
+    }
+    if (pickerType === 'year') {
+      return [
+        { id: 'all', name: 'All Years' },
+        { id: '2026', name: '2026' },
+        { id: '2025', name: '2025' },
+        { id: '2024', name: '2024' },
+        { id: '2023', name: '2023' }
+      ];
+    }
+    if (pickerType === 'month') {
+      return [{ id: 'all', name: 'All Months' }, ...MONTHS.map(m => ({ id: m.val, name: m.label }))];
+    }
+    if (pickerType === 'source') {
+      return [{ id: 'all', name: 'All Sources' }, ...PATIENT_SOURCES.map(s => ({ id: s, name: s }))];
+    }
+    if (pickerType === 'method') {
+      return [
+        { id: 'all', name: 'All Modes' },
+        { id: 'cash', name: 'Cash' },
+        { id: 'upi', name: 'UPI' },
+        { id: 'card', name: 'Card' }
+      ];
+    }
+    return [];
+  };
+
+  const getSelectedLabel = (type) => {
+    if (type === 'branch') {
+      return revenueBranchId === 'all' ? 'All Branches' : (branches.find(b => b.id === revenueBranchId)?.name || 'Select Branch');
+    }
+    if (type === 'year') {
+      return revenueYear === 'all' ? 'All Years' : revenueYear;
+    }
+    if (type === 'month') {
+      return revenueMonth === 'all' ? 'All Months' : (MONTHS.find(m => m.val === revenueMonth)?.label || 'Select Month');
+    }
+    if (type === 'source') {
+      return revenueSource === 'all' ? 'All Sources' : revenueSource;
+    }
+    if (type === 'method') {
+      return revenueMethod === 'all' ? 'All Modes' : (revenueMethod === 'cash' ? 'Cash' : revenueMethod === 'upi' ? 'UPI' : 'Card');
+    }
+    return '';
+  };
+
+  const handleSelectPickerItem = (id) => {
+    if (pickerType === 'branch') {
+      setRevenueBranchId(id);
+    } else if (pickerType === 'year') {
+      setRevenueYear(id);
+      setRevenueDate('');
+    } else if (pickerType === 'month') {
+      setRevenueMonth(id);
+      setRevenueDate('');
+      if (revenueYear === 'all') setRevenueYear(new Date().getFullYear().toString());
+    } else if (pickerType === 'source') {
+      setRevenueSource(id);
+    } else if (pickerType === 'method') {
+      setRevenueMethod(id);
+    }
+    setPickerVisible(false);
+  };
+
+  const openPickerModal = (type) => {
+    setPickerType(type);
+    setPickerVisible(true);
+  };
+
+  const formatDateDisplay = (dateVal) => {
+    if (!dateVal) return 'N/A';
+
+    // Firestore Timestamp check
+    if (dateVal.toDate && typeof dateVal.toDate === 'function') {
+      const d = dateVal.toDate();
+      const dd = String(d.getDate()).padStart(2, '0');
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const yyyy = d.getFullYear();
+      return `${dd}/${mm}/${yyyy}`;
+    }
+
+    // Raw seconds check
+    if (dateVal.seconds) {
+      const d = new Date(dateVal.seconds * 1000);
+      const dd = String(d.getDate()).padStart(2, '0');
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const yyyy = d.getFullYear();
+      return `${dd}/${mm}/${yyyy}`;
+    }
+
+    // Javascript Date check
+    if (dateVal instanceof Date) {
+      const dd = String(dateVal.getDate()).padStart(2, '0');
+      const mm = String(dateVal.getMonth() + 1).padStart(2, '0');
+      const yyyy = dateVal.getFullYear();
+      return `${dd}/${mm}/${yyyy}`;
+    }
+
+    // Fallback string coercion check
+    const dateStr = String(dateVal);
+    if (dateStr.includes('-')) {
+      const parts = dateStr.split('-');
+      if (parts.length === 3 && parts[0].length === 4) {
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+      }
+    }
+    return dateStr;
+  };
+
+  const renderTransactionItem = ({ item, index }) => {
+    const amount = item.paymentStatus === 'paid' ? (item.paymentAmount || 600) : 0;
+    const method = item.paymentStatus === 'paid' ? (item.paymentMethod || 'N/A').toUpperCase() : 'N/A';
+    const dateStr = item.paymentCollectedAt
+      ? new Date(item.paymentCollectedAt).toLocaleDateString('en-IN')
+      : (item.appointmentDate ? formatDateDisplay(item.appointmentDate) : 'N/A');
+
+    return (
+      <Surface style={st.transactionCard}>
+        <View style={st.cardHeader}>
+          <View style={st.patientBadgeWrapper}>
+            <Avatar.Text
+              size={34}
+              label={item.fullName ? item.fullName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : 'P'}
+              style={{ backgroundColor: COLORS.secondary + '15' }}
+              labelStyle={{ color: COLORS.secondary, fontSize: 11, fontWeight: '800' }}
+            />
+            <View style={{ marginLeft: 10, flex: 1 }}>
+              <Text style={st.patientName} numberOfLines={1}>{item.fullName}</Text>
+              <Text style={st.patientPhone} numberOfLines={1}>{item.phone || 'No Mobile'}</Text>
+            </View>
+          </View>
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={st.collectedAmount}>₹{amount}</Text>
+            <View style={[st.methodTag, { backgroundColor: method === 'CASH' ? '#fef3c7' : method === 'UPI' ? '#e0f2fe' : method === 'CARD' ? '#dcfce7' : '#f1f5f9' }]}>
+              <Text style={[st.methodTagText, { color: method === 'CASH' ? '#b45309' : method === 'UPI' ? '#0369a1' : method === 'CARD' ? '#15803d' : '#475569' }]}>{method}</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={st.cardFooter}>
+          <Text style={st.footerDetailText}>Branch: <Text style={{ fontWeight: '700', color: COLORS.text }}>{item.branchName || 'Main'}</Text></Text>
+          <Text style={st.footerDetailText}>Date: <Text style={{ fontWeight: '700', color: COLORS.text }}>{dateStr}</Text></Text>
+          <Text style={st.footerDetailText}>Source: <Text style={{ fontWeight: '700', color: COLORS.secondary }}>{item.source || 'Walk-in'}</Text></Text>
+        </View>
+      </Surface>
+    );
+  };
+
+  return (
+    <SafeAreaView style={st.container} edges={['top']}>
+      {/* Header */}
+      <View style={st.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={st.backBtn}>
+          <ChevronLeft size={24} color={COLORS.text} />
+        </TouchableOpacity>
+        <Text style={st.headerTitle}>Consultation Revenue</Text>
+        <TouchableOpacity onPress={handleResetRevenueFilters} style={st.resetBtnHeader}>
+          <RotateCcw size={16} color={COLORS.danger} />
+        </TouchableOpacity>
+      </View>
+
+      {loading ? (
+        <View style={st.centered}>
+          <ActivityIndicator size="large" color={COLORS.secondary} />
+          <Text style={{ marginTop: 12, color: COLORS.muted, fontWeight: '600' }}>Loading financials...</Text>
+        </View>
+      ) : (
+        <View style={{ flex: 1 }}>
+          {/* FlatList with header items to avoid scroll view conflict */}
+          <FlatList
+            data={filteredRevenuePatients}
+            renderItem={renderTransactionItem}
+            keyExtractor={item => item.id}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={st.listContent}
+            ListHeaderComponent={
+              <View>
+                {/* ── STATS DASHBOARD ──────────────────────────────── */}
+                <View style={st.statsContainer}>
+                  {/* Total Revenue */}
+                  <Surface style={[st.statsCard, { borderLeftColor: COLORS.primary, borderLeftWidth: 4 }]}>
+                    <Text style={st.statsLabel}>Total Revenue</Text>
+                    <Text style={[st.statsVal, { color: COLORS.primary }]}>₹{totalCollectedFees.toLocaleString('en-IN')}</Text>
+                    <Text style={st.statsSub}>{paidPatients.length} Transactions</Text>
+                  </Surface>
+
+                  {/* Mode Breakdowns */}
+                  <Surface style={[st.statsCard, { borderLeftColor: COLORS.warning, borderLeftWidth: 4 }]}>
+                    <Text style={st.statsLabel}>By Mode</Text>
+                    <View style={st.modeDetails}>
+                      <View style={st.modeRow}><Text style={st.modeLabel}>Cash</Text><Text style={[st.modeVal, { color: COLORS.warning }]}>₹{cashCollected}</Text></View>
+                      <View style={st.modeRow}><Text style={st.modeLabel}>UPI</Text><Text style={[st.modeVal, { color: COLORS.secondary }]}>₹{upiCollected}</Text></View>
+                      <View style={st.modeRow}><Text style={st.modeLabel}>Card</Text><Text style={[st.modeVal, { color: COLORS.success }]}>₹{cardCollected}</Text></View>
+                    </View>
+                  </Surface>
+
+                  {/* Channel Breakdowns */}
+                  <Surface style={[st.statsCard, { borderLeftColor: COLORS.purple, borderLeftWidth: 4, gridColumn: 'span 2' }]}>
+                    <Text style={st.statsLabel}>By Channel (Top 4)</Text>
+                    {topChannels.length === 0 ? (
+                      <Text style={st.emptyStatsText}>No data available</Text>
+                    ) : (
+                      <View style={st.channelDetails}>
+                        {topChannels.map(([source, amount]) => (
+                          <View key={source} style={st.modeRow}>
+                            <Text style={st.modeLabel} numberOfLines={1}>{source}</Text>
+                            <Text style={[st.modeVal, { color: COLORS.purple }]}>₹{amount}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+                  </Surface>
+                </View>
+
+                {/* ── MEDICINE SUBSCRIPTION METRICS ─────────────────────── */}
+                <Text style={st.sectionTitle}>Medicine Subscription Metrics</Text>
+                <Surface style={[st.subscriptionMainCard, { borderLeftColor: COLORS.purple }]}>
+                  <View style={st.subMainHeader}>
+                    <Text style={st.subMainLabel}>Avg. Revenue / Medicine Month</Text>
+                    <Text style={[st.subMainVal, { color: COLORS.purple }]}>₹{Math.round(subscriptionStats.avg).toLocaleString('en-IN')}</Text>
+                    <Text style={st.subMainFormula}>Total Revenue ÷ Total Months</Text>
+                  </View>
+
+                  <View style={st.divider} />
+
+                  <View style={st.subStatsRow}>
+                    <View style={st.subStatItem}>
+                      <Text style={st.subStatLabel}>Total Revenue</Text>
+                      <Text style={st.subStatVal}>₹{subscriptionStats.totalRev.toLocaleString('en-IN')}</Text>
+                      <Text style={st.subStatSub}>{filteredMedicineForms.length} Forms</Text>
+                    </View>
+                    <View style={st.verticalDivider} />
+                    <View style={st.subStatItem}>
+                      <Text style={st.subStatLabel}>Total Months</Text>
+                      <Text style={st.subStatVal}>{subscriptionStats.totalMonths} M</Text>
+                    </View>
+                  </View>
+
+                  <View style={st.divider} />
+
+                  {/* Doctor-wise Breakdown Collapsible */}
+                  <TouchableOpacity
+                    style={st.collapsibleHeader}
+                    onPress={() => setDoctorBreakdownExpanded(!doctorBreakdownExpanded)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={st.collapsibleTitle}>Doctor-wise Average Revenue</Text>
+                    <ChevronDown
+                      size={18}
+                      color={COLORS.muted}
+                      style={{ transform: [{ rotate: doctorBreakdownExpanded ? '180deg' : '0deg' }] }}
+                    />
+                  </TouchableOpacity>
+
+                  {doctorBreakdownExpanded && (
+                    <View style={st.expandedContent}>
+                      {doctorWiseAvgRevenue.length === 0 ? (
+                        <Text style={st.noDataText}>No data available</Text>
+                      ) : (
+                        doctorWiseAvgRevenue.map((doc, idx) => (
+                          <View key={doc.doctorName} style={[st.breakdownRow, idx > 0 && st.rowBorder]}>
+                            <View style={{ flex: 1.2 }}>
+                              <Text style={st.breakdownItemName} numberOfLines={1}>{doc.doctorName}</Text>
+                              <Text style={st.breakdownItemSub}>₹{doc.revenue.toLocaleString('en-IN')} | {doc.months} M</Text>
+                            </View>
+                            <View style={{ alignItems: 'flex-end', flex: 0.8 }}>
+                              <Text style={st.breakdownItemAvg}>₹{Math.round(doc.avg).toLocaleString('en-IN')}</Text>
+                              <Text style={st.breakdownItemLabel}>per month</Text>
+                            </View>
+                          </View>
+                        ))
+                      )}
+                    </View>
+                  )}
+
+                  {/* Branch-wise Breakdown Collapsible (Only shown if branch filter is 'all') */}
+                  {revenueBranchId === 'all' && (
+                    <>
+                      <View style={st.divider} />
+                      <TouchableOpacity
+                        style={st.collapsibleHeader}
+                        onPress={() => setBranchBreakdownExpanded(!branchBreakdownExpanded)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={st.collapsibleTitle}>Branch-wise Average Revenue</Text>
+                        <ChevronDown
+                          size={18}
+                          color={COLORS.muted}
+                          style={{ transform: [{ rotate: branchBreakdownExpanded ? '180deg' : '0deg' }] }}
+                        />
+                      </TouchableOpacity>
+
+                      {branchBreakdownExpanded && (
+                        <View style={st.expandedContent}>
+                          {branchWiseAvgRevenue.length === 0 ? (
+                            <Text style={st.noDataText}>No data available</Text>
+                          ) : (
+                            branchWiseAvgRevenue.map((br, idx) => (
+                              <View key={br.branchId} style={[st.breakdownRow, idx > 0 && st.rowBorder]}>
+                                <View style={{ flex: 1.2 }}>
+                                  <Text style={st.breakdownItemName} numberOfLines={1}>{br.branchName}</Text>
+                                  <Text style={st.breakdownItemSub}>₹{br.revenue.toLocaleString('en-IN')} | {br.months} M</Text>
+                                </View>
+                                <View style={{ alignItems: 'flex-end', flex: 0.8 }}>
+                                  <Text style={st.breakdownItemAvg}>₹{Math.round(br.avg).toLocaleString('en-IN')}</Text>
+                                  <Text style={st.breakdownItemLabel}>per month</Text>
+                                </View>
+                              </View>
+                            ))
+                          )}
+                        </View>
+                      )}
+                    </>
+                  )}
+                </Surface>
+
+                {/* ── FILTERS BAR ──────────────────────────────── */}
+                <Text style={st.sectionTitle}>Filter Records</Text>
+
+                {/* Search box */}
+                <Surface style={st.searchContainer}>
+                  <Search size={18} color={COLORS.muted} style={{ marginLeft: 10 }} />
+                  <TextInput
+                    placeholder="Search patient name or phone..."
+                    style={st.searchInput}
+                    value={revenueSearch}
+                    onChangeText={setRevenueSearch}
+                    placeholderTextColor={COLORS.muted}
+                  />
+                  {revenueSearch ? (
+                    <TouchableOpacity onPress={() => setRevenueSearch('')}>
+                      <X size={18} color={COLORS.muted} style={{ marginRight: 10 }} />
+                    </TouchableOpacity>
+                  ) : null}
+                </Surface>
+
+                {/* Filters grid */}
+                <View style={st.filtersGrid}>
+                  {/* Branch Select */}
+                  <TouchableOpacity style={st.filterDropdown} onPress={() => openPickerModal('branch')}>
+                    <View style={st.dropdownLeft}>
+                      <Text style={st.dropdownLabel}>Branch</Text>
+                      <Text style={st.dropdownSelected} numberOfLines={1}>{getSelectedLabel('branch')}</Text>
+                    </View>
+                    <ChevronDown size={16} color={COLORS.muted} />
+                  </TouchableOpacity>
+
+                  {/* Date Select */}
+                  <TouchableOpacity
+                    style={st.filterDropdown}
+                    onPress={() => setShowDatePicker(true)}
+                  >
+                    <View style={st.dropdownLeft}>
+                      <Text style={st.dropdownLabel}>Date</Text>
+                      <Text style={st.dropdownSelected} numberOfLines={1}>
+                        {revenueDate ? formatDateDisplay(revenueDate) : 'Select Date'}
+                      </Text>
+                    </View>
+                    <Calendar size={16} color={COLORS.muted} />
+                  </TouchableOpacity>
+
+                  {/* Year Select */}
+                  <TouchableOpacity style={st.filterDropdown} onPress={() => openPickerModal('year')}>
+                    <View style={st.dropdownLeft}>
+                      <Text style={st.dropdownLabel}>Year</Text>
+                      <Text style={st.dropdownSelected} numberOfLines={1}>{getSelectedLabel('year')}</Text>
+                    </View>
+                    <ChevronDown size={16} color={COLORS.muted} />
+                  </TouchableOpacity>
+
+                  {/* Month Select */}
+                  <TouchableOpacity style={st.filterDropdown} onPress={() => openPickerModal('month')}>
+                    <View style={st.dropdownLeft}>
+                      <Text style={st.dropdownLabel}>Month</Text>
+                      <Text style={st.dropdownSelected} numberOfLines={1}>{getSelectedLabel('month')}</Text>
+                    </View>
+                    <ChevronDown size={16} color={COLORS.muted} />
+                  </TouchableOpacity>
+
+                  {/* Source Select */}
+                  <TouchableOpacity style={st.filterDropdown} onPress={() => openPickerModal('source')}>
+                    <View style={st.dropdownLeft}>
+                      <Text style={st.dropdownLabel}>Source</Text>
+                      <Text style={st.dropdownSelected} numberOfLines={1}>{getSelectedLabel('source')}</Text>
+                    </View>
+                    <ChevronDown size={16} color={COLORS.muted} />
+                  </TouchableOpacity>
+
+                  {/* Payment Mode Select */}
+                  <TouchableOpacity style={st.filterDropdown} onPress={() => openPickerModal('method')}>
+                    <View style={st.dropdownLeft}>
+                      <Text style={st.dropdownLabel}>Mode</Text>
+                      <Text style={st.dropdownSelected} numberOfLines={1}>{getSelectedLabel('method')}</Text>
+                    </View>
+                    <ChevronDown size={16} color={COLORS.muted} />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Reset Filters button */}
+                <TouchableOpacity style={st.resetBtn} onPress={handleResetRevenueFilters}>
+                  <RotateCcw size={16} color="#ffffff" style={{ marginRight: 6 }} />
+                  <Text style={st.resetBtnText}>Reset Filters</Text>
+                </TouchableOpacity>
+
+                {/* Date Picker Component */}
+                {showDatePicker && (
+                  <DateTimePicker
+                    value={revenueDate ? parseHTMLDateToDateObj(revenueDate) || new Date() : new Date()}
+                    mode="date"
+                    display="default"
+                    onValueChange={(event, selectedDate) => {
+                      setShowDatePicker(false);
+                      if (selectedDate) {
+                        const y = selectedDate.getFullYear();
+                        const m = String(selectedDate.getMonth() + 1).padStart(2, '0');
+                        const d = String(selectedDate.getDate()).padStart(2, '0');
+                        setRevenueDate(`${y}-${m}-${d}`);
+                        setRevenueYear('all');
+                        setRevenueMonth('all');
+                      }
+                    }}
+                    onDismiss={() => setShowDatePicker(false)}
+                  />
+                )}
+
+                <Text style={[st.sectionTitle, { marginTop: 20 }]}>Transactions Logs ({filteredRevenuePatients.length})</Text>
+              </View>
+            }
+            ListEmptyComponent={
+              <Surface style={st.emptyStateCard}>
+                <XCircle size={32} color={COLORS.danger} />
+                <Text style={st.emptyStateText}>No collections matching your filters.</Text>
+              </Surface>
+            }
+          />
+        </View>
+      )}
+
+      {/* ── DROPDOWN PICKER SELECTOR MODAL ──────────────────────────────── */}
+      <Modal visible={pickerVisible} transparent animationType="fade" onRequestClose={() => setPickerVisible(false)}>
+        <TouchableOpacity style={st.modalOverlay} activeOpacity={1} onPress={() => setPickerVisible(false)}>
+          <View style={st.pickerModalContent}>
+            <View style={st.pickerHeader}>
+              <Text style={st.pickerTitle}>
+                {pickerType === 'branch' ? 'Filter Branch' : pickerType === 'year' ? 'Filter Year' : pickerType === 'month' ? 'Filter Month' : pickerType === 'source' ? 'Filter Source' : 'Filter Payment Mode'}
+              </Text>
+              <TouchableOpacity onPress={() => setPickerVisible(false)}>
+                <X size={20} color={COLORS.text} />
+              </TouchableOpacity>
+            </View>
+
+            <FlatList
+              data={getPickerItems()}
+              keyExtractor={item => item.id}
+              showsVerticalScrollIndicator={false}
+              renderItem={({ item }) => {
+                const currentVal = pickerType === 'branch' ? revenueBranchId : pickerType === 'year' ? revenueYear : pickerType === 'month' ? revenueMonth : pickerType === 'source' ? revenueSource : revenueMethod;
+                const isSelected = currentVal === item.id;
+
+                return (
+                  <TouchableOpacity style={st.pickerItem} onPress={() => handleSelectPickerItem(item.id)}>
+                    <Text style={[st.pickerItemText, isSelected && { color: COLORS.secondary, fontWeight: '700' }]}>{item.name}</Text>
+                    {isSelected ? <CheckCircle2 size={18} color={COLORS.secondary} /> : <Circle size={18} color={COLORS.border} />}
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          </View>
+        </TouchableOpacity>
+      </Modal>
+    </SafeAreaView>
+  );
+};
+
+// ── CUSTOM ICONS ──
+const XCircle = ({ size, color }) => (
+  <View style={{ width: size, height: size, borderRadius: size / 2, borderWidth: 2, borderColor: color, justifyContent: 'center', alignItems: 'center' }}>
+    <Text style={{ color: color, fontSize: size * 0.6, fontWeight: '800', marginTop: -2 }}>×</Text>
+  </View>
+);
+
+const st = StyleSheet.create({
+  container: { flex: 1, backgroundColor: COLORS.background },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: COLORS.white,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    minHeight: 56
+  },
+  backBtn: { padding: 6, borderRadius: 10, backgroundColor: COLORS.background },
+  headerTitle: { fontSize: 16, fontWeight: '700', color: COLORS.text },
+  resetBtnHeader: { padding: 6, borderRadius: 10, backgroundColor: COLORS.background },
+  listContent: { padding: 16, paddingBottom: 40 },
+  sectionTitle: { fontSize: 14, fontWeight: '800', color: COLORS.text, marginBottom: 12, marginTop: 8 },
+
+  // Stats Grid
+  statsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 16
+  },
+  statsCard: {
+    width: (SCREEN_W - 42) / 2,
+    padding: 14,
+    borderRadius: 14,
+    backgroundColor: COLORS.white,
+    elevation: 2,
+    justifyContent: 'space-between'
+  },
+  statsLabel: { fontSize: 10, fontWeight: '800', color: COLORS.muted, textTransform: 'uppercase', letterSpacing: 0.3 },
+  statsVal: { fontSize: 20, fontWeight: '900', marginVertical: 6 },
+  statsSub: { fontSize: 11, color: COLORS.muted, fontWeight: '600' },
+  modeDetails: { marginTop: 4, display: 'flex', flexDirection: 'column', gap: 2 },
+  channelDetails: { marginTop: 4, display: 'flex', flexDirection: 'column', gap: 2 },
+  modeRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  modeLabel: { fontSize: 11, color: COLORS.text, fontWeight: '600', flex: 1 },
+  modeVal: { fontSize: 11, fontWeight: '800' },
+  emptyStatsText: { fontSize: 11, color: COLORS.muted, fontStyle: 'italic', marginTop: 4 },
+
+  // Search box
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    height: 44,
+    marginBottom: 10,
+    elevation: 1
+  },
+  searchInput: {
+    flex: 1,
+    height: '100%',
+    paddingHorizontal: 10,
+    fontSize: 13,
+    color: COLORS.text
+  },
+
+  // Filters Bar
+  filtersGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 12
+  },
+  filterDropdown: {
+    width: (SCREEN_W - 40) / 2,
+    height: 48,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    elevation: 1
+  },
+  dropdownLeft: { flex: 1, marginRight: 4 },
+  dropdownLabel: { fontSize: 9, color: COLORS.muted, fontWeight: '600' },
+  dropdownSelected: { fontSize: 12, color: COLORS.text, fontWeight: '700', marginTop: 1 },
+
+  // Reset Filters Button
+  resetBtn: {
+    backgroundColor: COLORS.danger,
+    borderRadius: 10,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    marginBottom: 16,
+    elevation: 2
+  },
+  resetBtnText: { color: '#ffffff', fontWeight: '700', fontSize: 13 },
+
+  // Transactions logs card list
+  transactionCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 10,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: COLORS.border
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+    paddingBottom: 8,
+    marginBottom: 8
+  },
+  patientBadgeWrapper: { flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 8 },
+  patientName: { fontSize: 13, fontWeight: '700', color: COLORS.text },
+  patientPhone: { fontSize: 11, color: COLORS.muted, marginTop: 1 },
+  collectedAmount: { fontSize: 14, fontWeight: '900', color: COLORS.text },
+  methodTag: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginTop: 3,
+    alignSelf: 'flex-end'
+  },
+  methodTagText: { fontSize: 9, fontWeight: '800' },
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center'
+  },
+  footerDetailText: { fontSize: 10, color: COLORS.muted, fontWeight: '500' },
+
+  // Empty state
+  emptyStateCard: {
+    padding: 30,
+    borderRadius: 16,
+    backgroundColor: COLORS.white,
+    elevation: 1,
+    alignItems: 'center',
+    marginTop: 20
+  },
+  emptyStateText: { fontSize: 12, color: COLORS.muted, fontWeight: '600', marginTop: 10, textAlign: 'center' },
+
+  // Picker Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end'
+  },
+  pickerModalContent: {
+    backgroundColor: COLORS.white,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '60%',
+    padding: 20
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+    paddingBottom: 10
+  },
+  pickerTitle: { fontSize: 15, fontWeight: '800', color: COLORS.text },
+  pickerItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f8fafc'
+  },
+  pickerItemText: { fontSize: 14, color: COLORS.text, fontWeight: '500' },
+
+  // Subscription metrics styles
+  subscriptionMainCard: {
+    width: SCREEN_W - 32,
+    padding: 16,
+    borderRadius: 16,
+    backgroundColor: COLORS.white,
+    elevation: 3,
+    marginBottom: 20,
+    borderLeftWidth: 4,
+  },
+  subMainHeader: {
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  subMainLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: COLORS.muted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  subMainVal: {
+    fontSize: 24,
+    fontWeight: '900',
+    marginVertical: 4,
+  },
+  subMainFormula: {
+    fontSize: 10,
+    color: COLORS.muted,
+    fontStyle: 'italic',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: COLORS.border,
+    marginVertical: 12,
+  },
+  verticalDivider: {
+    width: 1,
+    backgroundColor: COLORS.border,
+    alignSelf: 'stretch',
+  },
+  subStatsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  subStatItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  subStatLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: COLORS.muted,
+    textTransform: 'uppercase',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  subStatVal: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: COLORS.text,
+  },
+  subStatSub: {
+    fontSize: 9,
+    color: COLORS.muted,
+    marginTop: 2,
+  },
+  collapsibleHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  collapsibleTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  expandedContent: {
+    marginTop: 8,
+    backgroundColor: '#f8fafc',
+    borderRadius: 10,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#edf2f7',
+  },
+  noDataText: {
+    fontSize: 11,
+    color: COLORS.muted,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    paddingVertical: 8,
+  },
+  breakdownRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  rowBorder: {
+    borderTopWidth: 1,
+    borderTopColor: '#edf2f7',
+  },
+  breakdownItemName: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  breakdownItemSub: {
+    fontSize: 10,
+    color: COLORS.muted,
+    marginTop: 1,
+  },
+  breakdownItemAvg: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: COLORS.secondary,
+  },
+  breakdownItemLabel: {
+    fontSize: 8,
+    color: COLORS.muted,
+  },
+});
+
+export default RevenueDashboard;
+
+
+
