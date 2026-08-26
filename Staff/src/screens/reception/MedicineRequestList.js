@@ -512,4 +512,4 @@ const styles = StyleSheet.create({
   patientListPhone: { fontSize: 12, color: COLORS.muted, marginTop: 2 },
 });
 
-export default MedicineRequestList;
+export default React.memo(MedicineRequestList, () => true);

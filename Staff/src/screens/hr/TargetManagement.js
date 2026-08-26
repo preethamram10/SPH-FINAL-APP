@@ -4,7 +4,7 @@ import { Text, Surface, ActivityIndicator, TextInput, Button } from 'react-nativ
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import { db } from '../../firebase';
-import { collection, query, where, onSnapshot, addDoc, serverTimestamp, doc, getDoc, updateDoc, getDocs } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, serverTimestamp, doc, getDoc, updateDoc, getDocs, limit, orderBy } from 'firebase/firestore';
 import { ChevronLeft, Edit2, Target, Calendar, CheckCircle2, AlertCircle, Lock } from 'lucide-react-native';
 
 const COLORS = {
@@ -90,6 +90,19 @@ const TargetManagement = ({ navigation }) => {
       snapshot.forEach(doc => {
         branchesList.push({ id: doc.id, ...doc.data() });
       });
+
+      const canonicals = [
+        { id: 'Kphb', name: 'Kphb', branchName: 'Kphb Branch' },
+        { id: 'Chandanagar', name: 'Chandanagar', branchName: 'Chandanagar Branch' },
+        { id: 'Dilshuknagar', name: 'Dilshuknagar', branchName: 'Dilshuknagar Branch' },
+        { id: 'Nallagandla', name: 'Nallagandla', branchName: 'Nallagandla Branch' }
+      ];
+
+      canonicals.forEach(c => {
+        const exists = branchesList.some(b => (b.name || b.branchName || b.id || '').toLowerCase().includes(c.name.toLowerCase()));
+        if (!exists) branchesList.push(c);
+      });
+
       setBranches(branchesList);
 
       const initialTargets = {};
@@ -167,24 +180,65 @@ const TargetManagement = ({ navigation }) => {
       console.error('Error listening to current month targets:', error);
     });
 
-    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    const qTrans = query(
-      collection(db, 'alltransactions'),
-      where('timestamp', '>=', startOfMonth)
-    );
-    const unsubscribeTrans = onSnapshot(qTrans, (transSnap) => {
+    const normKey = (val) => {
+      if (!val) return '';
+      const str = String(val).toLowerCase().trim();
+      if (str.includes('kphb') || str.includes('kphp') || str.includes('kph')) return 'kphb';
+      if (str.includes('chnr') || str.includes('chand') || str.includes('chn')) return 'chandanagar';
+      if (str.includes('dsnr') || str.includes('dil') || str.includes('dsn')) return 'dilshuknagar';
+      if (str.includes('nalla') || str.includes('ngl') || str.includes('nlg')) return 'nallagandla';
+      return str.replace(/\s*branch\s*/i, '').trim();
+    };
+
+    const parseAnyDate = (raw) => {
+      if (!raw) return null;
+      if (raw.toDate && typeof raw.toDate === 'function') return raw.toDate();
+      if (raw.seconds) return new Date(raw.seconds * 1000);
+      if (typeof raw === 'string') {
+        const clean = raw.trim();
+        const dDirect = new Date(clean);
+        if (!isNaN(dDirect.getTime())) return dDirect;
+
+        const datePart = clean.split(' ')[0];
+        const parts = datePart.split(/[-/T]/);
+        if (parts.length >= 3) {
+          const p0 = parts[0].replace(/\D/g, '');
+          const p2 = parts[2].replace(/\D/g, '');
+          const y = parseInt(p0.length === 4 ? p0 : p2, 10);
+          const m = parseInt(parts[1], 10) - 1;
+          const d = parseInt(p0.length === 4 ? p2 : p0, 10);
+          if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+            return new Date(y, m, d);
+          }
+        }
+      }
+      return null;
+    };
+
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth() + 1;
+
+    const unsubscribeTrans = onSnapshot(collection(db, 'alltransactions'), (transSnap) => {
       const revenueMap = {};
-      branchesList.forEach(branch => {
-        revenueMap[branch.id] = 0;
-      });
 
       transSnap.forEach(doc => {
         const trans = doc.data();
-        const amt = parseFloat(trans.amount) || 0;
-        if (trans.branchId) {
-          revenueMap[trans.branchId] = (revenueMap[trans.branchId] || 0) + amt;
-        }
+        if (trans.isDeleted) return;
+
+        const tDate = parseAnyDate(trans.timestamp || trans.createdAt || trans.date || trans.paymentCollectedAt);
+        if (!tDate || tDate.getFullYear() !== currentYear || (tDate.getMonth() + 1) !== currentMonth) return;
+
+        const bKey = normKey(trans.branchName || trans.branch || trans.branchId || trans.location || trans.clinicBranch || trans.raw?.branchName || trans.raw?.branchId || trans.raw?.branch || 'kphb') || 'kphb';
+        if (!bKey) return;
+
+        const baseAmt = Number(trans.amount || trans.amountPaid || trans.paymentAmount || 0);
+        const items = trans.itemsPaid || null;
+        const itemsSum = items ? (Number(items.consultation || 0) + Number(items.medicine || 0) + Number(items.dietPlan || 0) + Number(items.package || 0)) : 0;
+        const amt = baseAmt > 0 ? baseAmt : itemsSum;
+
+        revenueMap[bKey] = (revenueMap[bKey] || 0) + amt;
       });
+
       setCurrentMonthRevenue(revenueMap);
       setLiveLoading(false);
     }, (error) => {
@@ -275,13 +329,15 @@ const TargetManagement = ({ navigation }) => {
       }
 
       Alert.alert('Success', `Targets for ${nextMonth} have been set successfully.`, [
-        { text: 'OK', onPress: () => {
-          if (navigation.canGoBack()) {
-            navigation.goBack();
-          } else {
-            navigation.navigate('MainTab');
+        {
+          text: 'OK', onPress: () => {
+            if (navigation.canGoBack()) {
+              navigation.goBack();
+            } else {
+              navigation.navigate('MainTab');
+            }
           }
-        }}
+        }
       ]);
     } catch (error) {
       console.error('Error saving targets:', error);
@@ -295,7 +351,7 @@ const TargetManagement = ({ navigation }) => {
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={() => {
             Keyboard.dismiss();
             if (navigation.canGoBack()) {
@@ -303,7 +359,7 @@ const TargetManagement = ({ navigation }) => {
             } else {
               navigation.navigate('MainTab');
             }
-          }} 
+          }}
           style={styles.backBtn}
         >
           <ChevronLeft size={24} color={COLORS.text} />
@@ -341,9 +397,19 @@ const TargetManagement = ({ navigation }) => {
           <ActivityIndicator color={COLORS.secondary} style={{ marginVertical: 24 }} />
         ) : (
           branches.map(branch => {
-            const targetDoc = currentMonthTargets.find(t => t.branchId === branch.id);
-            const targetVal = targetDoc ? (targetDoc.target || 0) : 0;
-            const revenueVal = currentMonthRevenue[branch.id] || 0;
+            const normKey = (val) => {
+              if (!val) return '';
+              const str = String(val).toLowerCase().trim();
+              if (str.includes('kphb') || str.includes('kphp') || str.includes('kph')) return 'kphb';
+              if (str.includes('chnr') || str.includes('chand') || str.includes('chn')) return 'chandanagar';
+              if (str.includes('dsnr') || str.includes('dil') || str.includes('dsn')) return 'dilshuknagar';
+              if (str.includes('nalla') || str.includes('ngl') || str.includes('nlg')) return 'nallagandla';
+              return str.replace(/\s*branch\s*/i, '').trim();
+            };
+            const bKey = normKey(branch.branchId || branch.branchName || branch.name || branch.location || branch.id);
+            const targetDoc = currentMonthTargets.find(t => normKey(t.branchId) === bKey || normKey(t.branchName) === bKey) || currentMonthTargets.find(t => t.branchId === branch.id);
+            const targetVal = targetDoc ? (Number(targetDoc.target) || 0) : 0;
+            const revenueVal = currentMonthRevenue[bKey] || currentMonthRevenue[branch.id] || 0;
             const reachedVal = revenueVal;
             const remainingVal = targetVal > 0 ? Math.max(0, targetVal - reachedVal) : 0;
             const percentage = targetVal > 0 ? (reachedVal / targetVal) : (reachedVal > 0 ? 1 : 0);

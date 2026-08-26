@@ -40,11 +40,11 @@ const doctorWorksAtBranch = (doctor, userData) => {
   
   const normalizeBranch = (branch) => {
     if (!branch) return '';
-    const str = branch.toLowerCase().trim();
-    if (str.includes('kphb')) return 'kphb';
+    const str = String(branch).toLowerCase().trim();
+    if (str.includes('kphb') || str.includes('kphp')) return 'kphb';
     if (str.includes('chnr') || str.includes('chandanagar') || str.includes('chandnagar')) return 'chandnagar';
     if (str.includes('dsnr') || str.includes('dilsukhnagar') || str.includes('dilshuknagar')) return 'dilshuknagar';
-    if (str.includes('nallagandla')) return 'nallagandla';
+    if (str.includes('nallagandla') || str.includes('ngl') || str.includes('nlg')) return 'nallagandla';
     return str.replace(/\s*branch\s*/i, '').trim();
   };
 

@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import { db, auth } from '../../firebase';
 import { addDoc, collection, serverTimestamp, query, where, getDocs, onSnapshot } from 'firebase/firestore';
-import { Home, CalendarPlus, Users, ClipboardList, LogOut, Briefcase, Lock, Package, Pill, History, IndianRupee } from 'lucide-react-native';
+import { Home, CalendarPlus, Users, ClipboardList, LogOut, Briefcase, Lock, Package, Pill, History, IndianRupee, Clock, FileText } from 'lucide-react-native';
 
 import MedicineRequestList from './MedicineRequestList';
 import Dashboard from '../Dashboard';
@@ -21,14 +21,37 @@ const COLORS = {
   muted: '#64748b',
   white: '#ffffff',
   success: '#4ade80',
-  danger: '#ef4444',
 };
 
-const MainTabScreen = ({ navigation }) => {
+const NavItem = React.memo(({ icon, label, active, onPress, color, badgeCount }) => (
+  <TouchableOpacity
+    style={styles.navItem}
+    activeOpacity={0.6}
+    delayPressIn={0}
+    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+    onPress={onPress}
+  >
+    <View style={{ position: 'relative' }}>
+      {icon}
+      {badgeCount > 0 && (
+        <View style={styles.badgeDot}>
+          <Text style={styles.badgeDotText}>
+            {badgeCount > 9 ? '9+' : badgeCount}
+          </Text>
+        </View>
+      )}
+    </View>
+    <Text style={[styles.navText, active && { color }]}>{label}</Text>
+  </TouchableOpacity>
+));
+
+const MainTabScreen = ({ navigation, route }) => {
   const { userData } = useAuth();
-  const isEmailLogin = auth.currentUser?.email && !auth.currentUser.email.startsWith('dummyphone_');
-  const isHR = userData?.role === 'hr';
-  const isDoctor = !isEmailLogin && userData?.role === 'doctor';
+  const roleLower = String(userData?.role || '').toLowerCase().trim();
+  const isHR = roleLower === 'hr';
+  const isDoctor = roleLower === 'doctor';
+  const isRegularStaff = roleLower === 'staff';
+  const isReception = ['receptionist', 'reception', 'receptionist_admin', 'admin', 'superadmin', 'manager', 'management'].includes(roleLower);
   const [activeTab, setActiveTab] = useState('Dashboard');
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [targetsSet, setTargetsSet] = useState(false);
@@ -39,6 +62,12 @@ const MainTabScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
 
   useEffect(() => {
+    if (route?.params?.tab) {
+      setActiveTab(route.params.tab);
+    }
+  }, [route?.params?.tab]);
+
+  useEffect(() => {
     // Punch-in locks are bypassed: always unlocked
     setIsPunchedIn(true);
     setLoadingPunch(false);
@@ -47,10 +76,10 @@ const MainTabScreen = ({ navigation }) => {
   useEffect(() => {
     if (!userData) return;
     const roleLower = String(userData?.role || '').toLowerCase().trim();
-    if (roleLower === 'hr') {
+    if (roleLower === 'hr' && !route?.params?.tab) {
       setActiveTab('HRDashboard');
     }
-  }, [userData]);
+  }, [userData, route?.params?.tab]);
 
   useEffect(() => {
     checkTargetsForCurrentMonth();
@@ -160,28 +189,34 @@ const MainTabScreen = ({ navigation }) => {
   };
 
 
+  const handleTabPress = React.useCallback((tab) => {
+    requestAnimationFrame(() => {
+      setActiveTab(tab);
+    });
+  }, []);
+
   return (
     <View style={styles.container}>
       {/* Dynamic Screen Container */}
       <View style={styles.content}>
-        {/* Primary screens kept mounted for 0ms instant tab switching */}
+        {/* Primary screens kept permanently mounted for instant 0ms tab switching */}
         <View style={{ flex: 1, display: activeTab === 'Dashboard' ? 'flex' : 'none' }}>
-          <Dashboard navigation={navigation} setActiveTab={setActiveTab} activeTab={activeTab} />
+          <Dashboard navigation={navigation} setActiveTab={handleTabPress} />
         </View>
         <View style={{ flex: 1, display: activeTab === 'RegisterPatient' ? 'flex' : 'none' }}>
-          <RegisterPatient navigation={navigation} setActiveTab={setActiveTab} />
+          <RegisterPatient navigation={navigation} setActiveTab={handleTabPress} />
         </View>
         <View style={{ flex: 1, display: activeTab === 'ReceptionPanel' ? 'flex' : 'none' }}>
-          <ReceptionPanel navigation={navigation} setActiveTab={setActiveTab} activeTab={activeTab} mode="all" />
+          <ReceptionPanel navigation={navigation} setActiveTab={handleTabPress} mode="all" />
+        </View>
+        <View style={{ flex: 1, display: activeTab === 'MedicineRequestList' ? 'flex' : 'none' }}>
+          <MedicineRequestList navigation={navigation} setActiveTab={handleTabPress} />
         </View>
         {isHR && activeTab === 'HRDashboard' && (
-          <HRDashboard navigation={navigation} setActiveTab={setActiveTab} />
+          <HRDashboard navigation={navigation} setActiveTab={handleTabPress} />
         )}
         {isDoctor && activeTab === 'PackageMembers' && (
-          <PackageMembers navigation={navigation} setActiveTab={setActiveTab} />
-        )}
-        {activeTab === 'MedicineRequestList' && (
-          <MedicineRequestList navigation={navigation} setActiveTab={setActiveTab} />
+          <PackageMembers navigation={navigation} setActiveTab={handleTabPress} />
         )}
       </View>
 
@@ -194,90 +229,71 @@ const MainTabScreen = ({ navigation }) => {
             height: 65 + Math.max(insets.bottom, 15)
           }
         ]}>
-          <TouchableOpacity style={styles.navItem} activeOpacity={1} onPress={() => setActiveTab('Dashboard')}>
-            <Home size={20} color={activeTab === 'Dashboard' ? COLORS.secondary : COLORS.muted} style={{ marginBottom: 4 }} />
-            <Text style={[styles.navText, activeTab === 'Dashboard' && { color: COLORS.secondary }]}>Dashboard</Text>
-          </TouchableOpacity>
+          <NavItem
+            icon={<Home size={20} color={activeTab === 'Dashboard' ? COLORS.secondary : COLORS.muted} style={{ marginBottom: 4 }} />}
+            label="Dashboard"
+            active={activeTab === 'Dashboard'}
+            color={COLORS.secondary}
+            onPress={() => handleTabPress('Dashboard')}
+          />
 
-          {(isHR || (!isDoctor && !isEmailLogin)) && (
-            <TouchableOpacity
-              style={styles.navItem}
-              activeOpacity={1}
-              onPress={() => {
-                if (!isHR && !isPunchedIn) {
-                  alert('Please punch in (check-in) on the Dashboard first to unlock booking.');
-                  return;
-                }
-                setActiveTab('RegisterPatient');
-              }}
-              disabled={loadingPunch}
-            >
-              {(!isHR && !isPunchedIn) ? (
-                <Lock size={20} color={COLORS.danger} style={{ marginBottom: 4 }} />
-              ) : (
-                <CalendarPlus size={20} color={activeTab === 'RegisterPatient' ? COLORS.secondary : COLORS.muted} style={{ marginBottom: 4 }} />
-              )}
-              <Text style={[styles.navText, activeTab === 'RegisterPatient' && { color: COLORS.secondary }, (!isHR && !isPunchedIn) && { color: COLORS.danger }]}>
-                {(!isHR && !isPunchedIn) ? 'Locked' : 'Book Appt'}
-              </Text>
-            </TouchableOpacity>
+          {!isDoctor && !isRegularStaff && (
+            <NavItem
+              icon={<CalendarPlus size={20} color={activeTab === 'RegisterPatient' ? COLORS.secondary : COLORS.muted} style={{ marginBottom: 4 }} />}
+              label="Book Appt"
+              active={activeTab === 'RegisterPatient'}
+              color={COLORS.secondary}
+              onPress={() => handleTabPress('RegisterPatient')}
+            />
           )}
 
-          {!isHR && !isEmailLogin && (
-            <TouchableOpacity
-              style={styles.navItem}
-              activeOpacity={1}
-              onPress={() => {
-                if (!isPunchedIn) {
-                  alert('Please punch in (check-in) on the Dashboard first to unlock Patient List.');
-                  return;
-                }
-                setActiveTab('ReceptionPanel');
-              }}
-              disabled={loadingPunch}
-            >
-              {!isPunchedIn ? (
-                <Lock size={20} color={COLORS.danger} style={{ marginBottom: 4 }} />
-              ) : (
-                <Users size={20} color={activeTab === 'ReceptionPanel' ? COLORS.secondary : COLORS.muted} style={{ marginBottom: 4 }} />
-              )}
-              <Text style={[styles.navText, activeTab === 'ReceptionPanel' && { color: COLORS.secondary }, !isPunchedIn && { color: COLORS.danger }]}>
-                {!isPunchedIn ? 'Locked' : 'Patient List'}
-              </Text>
-            </TouchableOpacity>
+          {!isHR && !isRegularStaff && (
+            <NavItem
+              icon={<Users size={20} color={activeTab === 'ReceptionPanel' ? COLORS.secondary : COLORS.muted} style={{ marginBottom: 4 }} />}
+              label="All Patients"
+              active={activeTab === 'ReceptionPanel'}
+              color={COLORS.secondary}
+              onPress={() => handleTabPress('ReceptionPanel')}
+            />
           )}
 
-          {!isHR && !isEmailLogin && !isDoctor && (
-            <TouchableOpacity
-              style={styles.navItem}
-              activeOpacity={1}
-              onPress={() => {
-                if (!isPunchedIn) {
-                  alert('Please punch in (check-in) on the Dashboard first to unlock Medicine Requests.');
-                  return;
-                }
-                setActiveTab('MedicineRequestList');
-              }}
-              disabled={loadingPunch}
-            >
-              <View style={{ position: 'relative' }}>
-                {!isPunchedIn ? (
-                  <Lock size={20} color={COLORS.danger} style={{ marginBottom: 4 }} />
-                ) : (
-                  <Pill size={20} color={activeTab === 'MedicineRequestList' ? COLORS.secondary : COLORS.muted} style={{ marginBottom: 4 }} />
-                )}
-                {isPunchedIn && pendingMedReqCount > 0 && (
-                  <View style={styles.badgeDot}>
-                    <Text style={styles.badgeDotText}>
-                      {pendingMedReqCount > 9 ? '9+' : pendingMedReqCount}
-                    </Text>
-                  </View>
-                )}
-              </View>
-              <Text style={[styles.navText, activeTab === 'MedicineRequestList' && { color: COLORS.secondary }, !isPunchedIn && { color: COLORS.danger }]}>
-                {!isPunchedIn ? 'Locked' : 'Med Req'}
-              </Text>
-            </TouchableOpacity>
+          {!isHR && !isDoctor && !isRegularStaff && (
+            <NavItem
+              icon={<Pill size={20} color={activeTab === 'MedicineRequestList' ? COLORS.secondary : COLORS.muted} style={{ marginBottom: 4 }} />}
+              label="Medicine Req"
+              active={activeTab === 'MedicineRequestList'}
+              color={COLORS.secondary}
+              badgeCount={pendingMedReqCount}
+              onPress={() => handleTabPress('MedicineRequestList')}
+            />
+          )}
+
+          {isRegularStaff && (
+            <>
+              <NavItem
+                icon={<Clock size={20} color={COLORS.muted} style={{ marginBottom: 4 }} />}
+                label="Attendance"
+                active={false}
+                color={COLORS.secondary}
+                onPress={() => navigation.navigate('MyAttendance')}
+              />
+
+              <NavItem
+                icon={<CalendarPlus size={20} color={COLORS.muted} style={{ marginBottom: 4 }} />}
+                label="Apply Leave"
+                active={false}
+                color={COLORS.secondary}
+                onPress={() => navigation.navigate('ApplyLeave')}
+              />
+
+              <NavItem
+                icon={<FileText size={20} color={COLORS.muted} style={{ marginBottom: 4 }} />}
+                label="Payslips"
+                active={false}
+                color={COLORS.secondary}
+                onPress={() => navigation.navigate('MyPayslips')}
+              />
+            </>
           )}
 
           {isHR && (

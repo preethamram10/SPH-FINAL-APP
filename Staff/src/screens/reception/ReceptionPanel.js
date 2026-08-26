@@ -177,7 +177,7 @@ const getBranchNamesList = (branchId, branchName) => {
     branchVariations.add(val);
     branchVariations.add(lower);
     branchVariations.add(val.toUpperCase());
-    if (lower.includes('kphb')) {
+    if (lower.includes('kphb') || lower.includes('kphp')) {
       branchVariations.add('KPHB');
       branchVariations.add('KPHB Branch');
       branchVariations.add('Kphb');
@@ -191,7 +191,7 @@ const getBranchNamesList = (branchId, branchName) => {
       branchVariations.add('Dilshuknagar');
       branchVariations.add('Dilshuknagar Branch');
       branchVariations.add('Dilsukhnagar');
-    } else if (lower.includes('nallagandla')) {
+    } else if (lower.includes('nallagandla') || lower.includes('ngl') || lower.includes('nlg')) {
       branchVariations.add('Nallagandla');
       branchVariations.add('Nallagandla Branch');
     }
@@ -289,11 +289,11 @@ const isMatchingSelectedDate = (dateStr, selDate) => {
 
 const normalizeBranch = (branch) => {
   if (!branch) return '';
-  const str = branch.toLowerCase().trim();
-  if (str.includes('kphb')) return 'kphb';
+  const str = String(branch).toLowerCase().trim();
+  if (str.includes('kphb') || str.includes('kphp')) return 'kphb';
   if (str.includes('chnr') || str.includes('chandanagar') || str.includes('chandnagar')) return 'chandnagar';
   if (str.includes('dsnr') || str.includes('dilsukhnagar') || str.includes('dilshuknagar')) return 'dilshuknagar';
-  if (str.includes('nallagandla')) return 'nallagandla';
+  if (str.includes('nallagandla') || str.includes('ngl') || str.includes('nlg')) return 'nallagandla';
   return str.replace(/\s*branch\s*/i, '').trim();
 };
 
@@ -1339,17 +1339,23 @@ const ReceptionPanel = ({ navigation, setActiveTab, activeTab, mode = 'all' }) =
     // Calculate stats before applying status filter
     const upcomingCount = result.filter(p => {
       const s = (p.status || '').toLowerCase();
-      return ['booked', 'waiting', 'in-consultation', 'pending', 'confirmed'].includes(s) && !isPatientPaid(p);
+      const docS = (p.doctorStatus || '').toLowerCase();
+      const isConsultDone = s === 'done' || s === 'completed' || s === 'consulted' || s === 'completed_today' || docS === 'prescribed';
+      return ['booked', 'waiting', 'in-consultation', 'pending', 'confirmed'].includes(s) && !isConsultDone;
     }).length;
+
     const awaitingPaymentCount = result.filter(p => {
       const s = (p.status || '').toLowerCase();
       const docS = (p.doctorStatus || '').toLowerCase();
-      return (s === 'completed' || docS === 'prescribed') && !isPatientPaid(p);
+      const isConsultDone = s === 'done' || s === 'completed' || s === 'consulted' || s === 'completed_today' || docS === 'prescribed';
+      return isConsultDone && !isPatientPaid(p);
     }).length;
+
     const completedCount = result.filter(p => {
       const s = (p.status || '').toLowerCase();
       const docS = (p.doctorStatus || '').toLowerCase();
-      return s === 'done' || ((s === 'completed' || docS === 'prescribed') && isPatientPaid(p)) || isPatientPaid(p);
+      const isConsultDone = s === 'done' || s === 'completed' || s === 'consulted' || s === 'completed_today' || docS === 'prescribed';
+      return isConsultDone && isPatientPaid(p);
     }).length;
 
     setStats({
@@ -1363,9 +1369,11 @@ const ReceptionPanel = ({ navigation, setActiveTab, activeTab, mode = 'all' }) =
       const s = (patient.status || '').toLowerCase();
       const docS = (patient.doctorStatus || '').toLowerCase();
       const paid = isPatientPaid(patient);
-      if (selectedStatusFilter === 'upcoming') return ['booked', 'waiting', 'in-consultation', 'pending', 'confirmed'].includes(s) && !paid;
-      if (selectedStatusFilter === 'awaiting-payment') return (s === 'completed' || docS === 'prescribed') && !paid;
-      if (selectedStatusFilter === 'completed') return s === 'done' || ((s === 'completed' || docS === 'prescribed') && paid) || paid;
+      const isConsultDone = s === 'done' || s === 'completed' || s === 'consulted' || s === 'completed_today' || docS === 'prescribed';
+
+      if (selectedStatusFilter === 'upcoming') return ['booked', 'waiting', 'in-consultation', 'pending', 'confirmed'].includes(s) && !isConsultDone;
+      if (selectedStatusFilter === 'awaiting-payment') return isConsultDone && !paid;
+      if (selectedStatusFilter === 'completed') return isConsultDone && paid;
       return true;
     });
 
@@ -2794,4 +2802,4 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
   },
 });
-export default ReceptionPanel;
+export default React.memo(ReceptionPanel, () => true);

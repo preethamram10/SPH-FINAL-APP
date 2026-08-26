@@ -1,5 +1,5 @@
 import React from 'react';
-import { LogBox, View } from 'react-native';
+import { LogBox, View, ActivityIndicator } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Provider as PaperProvider } from 'react-native-paper';
@@ -120,7 +120,13 @@ const Navigation = () => {
     return () => unsub();
   }, [user, userData]);
 
-  if (authLoading || (user && loadingLock)) return null;
+  if (authLoading || (user && loadingLock)) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#ffffff', justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#10b981" />
+      </View>
+    );
+  }
 
   if (user && isLocked) {
     return (

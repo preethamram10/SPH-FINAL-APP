@@ -5,16 +5,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../firebase';
 import { collection, query, where, onSnapshot, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { ChevronRight, ChevronLeft, CalendarClock, Phone, MessageCircle, User, RefreshCw, CalendarPlus, X, Calendar, UserCheck, History, Clock } from 'lucide-react-native';
+import { ChevronRight, ChevronLeft, CalendarClock, Phone, MessageCircle, User, RefreshCw, CalendarPlus, X, Calendar, UserCheck, History, Clock, Building2 } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 
 const WhatsAppIcon = ({ size = 16, color = '#25d366' }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
-    <Path d="M12.031 2C6.49 2 2 6.49 2 12.03c0 1.768.46 3.491 1.335 5.015L2 22l5.13-1.348a9.98 9.98 0 0 0 4.901 1.28c5.54 0 10.03-4.49 10.03-10.03C22.062 6.49 17.571 2 12.031 2zm6.182 14.18c-.272.766-1.356 1.394-1.922 1.49-.49.082-.99.04-2.884-.716-2.42-.968-3.958-3.414-4.08-3.576-.118-.162-.962-1.282-.962-2.444 0-1.162.612-1.73.83-1.964.218-.236.478-.294.636-.294.158 0 .316.002.454.008.146.006.342-.056.536.41.2.48.682 1.662.742 1.782.06.12.1.258.02.418-.08.16-.178.272-.294.408-.118.136-.248.304-.354.408-.12.118-.244.246-.104.484.14.238.622 1.026 1.334 1.66.92.818 1.694 1.07 1.932 1.19.238.12.378.102.518-.058.14-.16.6-1.012.76-1.356.16-.344.318-.288.536-.208.218.08 1.382.652 1.62.77.238.118.396.176.456.276.06.1.06.58-.212 1.346z" />
+    <Path d="M12.031 2C6.49 2 2 6.49 2 12.03c0 1.768.46 3.491 1.335 5.015L2 22l5.13-1.348a9.98 9.98 0 0 0 4.901 1.28c5.54 0 10.03-4.49 10.03-10.03C22.062 6.49 17.571 2 12.031 2zm6.182 14.18c-.272.766-1.356 1.394-1.922 1.49-.49.082-.99.04-2.884-.716-2.42-.968-3.958-3.414-4.08-3.576-.118-.162-.962-1.282-.962-2.444 0-1.162.612-1.73.83-1.964.218-.236.478-.294.636-.294.158 0 .316.002.454.008.146.006.342-.056.536.41.2.48.682 1.662.742 1.782.06.12.1.258.02.418-.08.16-.178.272-.294.408-.118.136-.248.304-.354.408-.12.118-.244.246-.104.484.14.238.622 1.026 1.334 1.66.92.818 1.694 1.07 1.932 1.19.238.118.396.176.456.276.06.1.06.58-.212 1.346z" />
   </Svg>
 );
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { sendRescheduleSMS } from '../utils/smsHelper';
+import { getStandardBranchName } from '../utils/idGenerator';
 
 const COLORS = {
   primary: '#a8ce3a',
@@ -27,6 +28,16 @@ const COLORS = {
   success: '#10b981',
   warning: '#f59e0b',
   danger: '#ef4444',
+};
+
+const normalizeBranchCode = (branch) => {
+  if (!branch) return '';
+  const str = String(branch).toLowerCase().trim();
+  if (str.includes('kphb') || str.includes('kphp')) return 'kphb';
+  if (str.includes('chnr') || str.includes('chandanagar') || str.includes('chandnagar')) return 'chandanagar';
+  if (str.includes('dsnr') || str.includes('dilsukhnagar') || str.includes('dilshuknagar')) return 'dilshuknagar';
+  if (str.includes('nallagandla') || str.includes('ngl') || str.includes('nlg')) return 'nallagandla';
+  return str.replace(/\s*branch\s*/i, '').trim();
 };
 
 const DOCTOR_SCHEDULES = {
@@ -66,7 +77,6 @@ const DOCTOR_SCHEDULES = {
     ]
   }
 };
-
 const generateSlotsForSelectedInFollowUp = (docName, branchName, dateObj) => {
   if (!docName || !branchName || !dateObj) return [];
   const day = dateObj.getDay();
@@ -208,7 +218,7 @@ const cleanDoctorName = (name) => {
     cleaned = cleaned.replace(prefixRegex, '');
   }
   if (!cleaned || cleaned.toLowerCase() === 'doctor') return 'Doctor';
-  
+
   cleaned = cleaned.split(/\s+/)
     .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(' ');
@@ -248,58 +258,100 @@ const FollowUps = ({ navigation }) => {
   };
 
   useEffect(() => {
-    let unsubPatients = null;
+    let unsubFollowups = null;
+    let unsubAllPatients = null;
 
-    // Branch matching helper
     const isBranchMatch = (data) => {
-      if (!userData?.branchId) return true;
-      if (userData?.role === 'doctor') return true;
+      const userBranchRaw = userData?.branchId || userData?.branchName || userData?.branch || userData?.assignedBranch || userData?.clinic;
+      const normUserBranch = normalizeBranchCode(userBranchRaw);
 
-      const normalizeBranch = (branch) => {
-        if (!branch) return '';
-        const str = branch.toLowerCase().trim();
-        if (str.includes('kphb')) return 'kphb';
-        if (str.includes('chnr') || str.includes('chandanagar') || str.includes('chandnagar')) return 'chandnagar';
-        if (str.includes('dsnr') || str.includes('dilsukhnagar') || str.includes('dilshuknagar')) return 'dilshuknagar';
-        if (str.includes('nallagandla')) return 'nallagandla';
-        return str.replace(/\\s*branch\\s*/i, '').trim();
-      };
+      const docBranchRaw = data.branchId || data.branchName || data.branch;
+      const normDocBranch = normalizeBranchCode(docBranchRaw);
 
-      const normVal = normalizeBranch(data.branchId);
-      const normName = normalizeBranch(data.branchName);
-      const normUserId = normalizeBranch(userData.branchId);
-      const normUserName = normalizeBranch(userData.branchName);
+      if (normUserBranch) {
+        return normDocBranch === normUserBranch;
+      }
 
-      return normVal === normUserId || normVal === normUserName ||
-        normName === normUserId || normName === normUserName ||
-        data.branchId === userData.branchId || data.branchId === userData.branchName ||
-        data.branchName === userData.branchName || data.branchName === userData.branchId;
+      return normDocBranch === 'kphb';
+    };
+
+    const followupsMap = new Map();
+    const allPatientsMap = new Map();
+
+    const updateList = () => {
+      const combinedMap = new Map();
+
+      // 1. Centralized followups collection records
+      followupsMap.forEach((item, id) => {
+        if (isBranchMatch(item)) {
+          combinedMap.set(item.patientId || id, { id, ...item, _source: 'followups' });
+        }
+      });
+
+      // 2. Allpatients records with set followUpDate
+      allPatientsMap.forEach((item, id) => {
+        if (item.followUpDate && item.followUpInterval !== 'No Follow-up' && isBranchMatch(item)) {
+          const key = id;
+          if (!combinedMap.has(key)) {
+            combinedMap.set(key, {
+              id,
+              patientId: id,
+              patientName: item.fullName || item.patientName || 'Patient',
+              fullName: item.fullName || item.patientName || 'Patient',
+              phone: item.phone || '',
+              email: item.email || '',
+              doctor: item.doctor || item.doctorName || '',
+              branchId: item.branchId || item.branchName || item.branch || '',
+              branchName: item.branchName || item.branchId || item.branch || '',
+              followUpDate: item.followUpDate,
+              followUpInterval: item.followUpInterval || '15 days',
+              complaint: item.complaint || item.subject || 'Consultation',
+              status: item.status || 'pending',
+              _source: 'allpatients'
+            });
+          }
+        }
+      });
+
+      setPatients(Array.from(combinedMap.values()));
+      setLoading(false);
     };
 
     // Subscribe to followups collection
-    const patientsRef = collection(db, 'followups');
-    const qPatients = query(patientsRef);
-
-    unsubPatients = onSnapshot(qPatients, (snapshot) => {
-      const list = [];
-      snapshot.forEach(doc => {
-        const data = doc.data();
-        // Skip if followUpInterval is explicitly 'No Follow-up'
-        if (data.followUpInterval === 'No Follow-up') return;
-        const matchResult = !data.branchId || isBranchMatch(data);
-        if (userData?.role === 'doctor' || matchResult) {
-          list.push({ id: doc.id, ...data, _source: 'followups' });
+    const qFollowups = query(collection(db, 'followups'));
+    unsubFollowups = onSnapshot(qFollowups, (snapshot) => {
+      followupsMap.clear();
+      snapshot.forEach(docSnap => {
+        const d = docSnap.data();
+        if (d.followUpInterval !== 'No Follow-up' && d.followUpDate) {
+          followupsMap.set(docSnap.id, d);
         }
       });
-      setPatients(list);
+      updateList();
+    }, (err) => {
+      console.error("Error listening to followups: ", err);
       setLoading(false);
-    }, (error) => {
-      console.error('Error fetching patients follow-ups:', error);
+    });
+
+    // Subscribe to allpatients collection
+    const qAllPatients = query(collection(db, 'allpatients'));
+    unsubAllPatients = onSnapshot(qAllPatients, (snapshot) => {
+      allPatientsMap.clear();
+      snapshot.forEach(docSnap => {
+        const d = docSnap.data();
+        if (d.followUpDate && d.followUpInterval !== 'No Follow-up') {
+          allPatientsMap.set(docSnap.id, d);
+        }
+      });
+      updateList();
+    }, (err) => {
+      console.error("Error listening to allpatients: ", err);
       setLoading(false);
     });
 
     return () => {
-      if (unsubPatients) unsubPatients();
+      if (unsubFollowups) unsubFollowups();
+      if (unsubAllPatients) unsubAllPatients();
     };
   }, [userData]);
 
@@ -493,7 +545,16 @@ const FollowUps = ({ navigation }) => {
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+        <TouchableOpacity
+          onPress={() => {
+            if (navigation && navigation.canGoBack && navigation.canGoBack()) {
+              navigation.goBack();
+            } else if (navigation && navigation.navigate) {
+              navigation.navigate('Dashboard');
+            }
+          }}
+          style={styles.backBtn}
+        >
           <ChevronLeft size={22} color={COLORS.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Follow Ups</Text>
@@ -639,6 +700,12 @@ const FollowUps = ({ navigation }) => {
                   {getUrgencyBadge(patient.followUpDate)}
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 6, flexWrap: 'wrap' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <Building2 size={12} color={COLORS.secondary} />
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.secondary }}>
+                      {getStandardBranchName(patient.branchName || patient.branchId || patient.branch || userData?.branchName || 'Branch')} Branch
+                    </Text>
+                  </View>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                     <User size={12} color={COLORS.muted} />
                     <Text style={styles.doctorText}>

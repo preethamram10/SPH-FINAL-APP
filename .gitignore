@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+
+# Expo
+.expo/
+.expo-shared/
+
+# Build output
+dist/
+build/
+
+# Android build files
+android/.gradle/
+android/.cxx/
+android/app/build/
+android/build/
+
+# iOS
+ios/Pods/
+ios/build/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Android signing keys
+*.jks
+*.keystore
+*.p12
+*.pem
+
+# Firebase credentials/config
+google-services.json
+GoogleService-Info.plist
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db

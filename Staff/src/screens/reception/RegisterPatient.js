@@ -233,6 +233,8 @@ const RegisterPatient = ({ route, navigation, setActiveTab }) => {
   const [existingProfilesList, setExistingProfilesList] = useState([]);
   const [checkedPhone, setCheckedPhone] = useState('');
   const [bypassPhoneCheck, setBypassPhoneCheck] = useState(false);
+  const [phoneCheckResult, setPhoneCheckResult] = useState(null);
+  const [cachedNoShows, setCachedNoShows] = useState([]);
   const [checkingProfilesLoading, setCheckingProfilesLoading] = useState(false);
 
   const findProfilesByPhone = async (rawPhone) => {
@@ -240,48 +242,23 @@ const RegisterPatient = ({ route, navigation, setActiveTab }) => {
     const clean = String(rawPhone).replace(/\D/g, '').slice(-10);
     if (clean.length < 10) return [];
 
-    const possibleValues = [
-      clean,
-      rawPhone.trim(),
-      `+91${clean}`,
-      `+91 ${clean}`,
-      `91${clean}`
-    ];
-    const numClean = Number(clean);
-    if (!isNaN(numClean)) possibleValues.push(numClean);
+    const safeQuery = (q) => getDocs(q).catch(() => ({ docs: [] }));
 
-    const safeQuery = (q) => getDocs(q).catch(err => {
-      console.warn("Query fallback skipped:", err?.message || err);
-      return null;
-    });
+    const [snapAll, snapPatients] = await Promise.all([
+      safeQuery(query(collection(db, 'allpatients'), where('phone', '==', clean), limit(20))),
+      safeQuery(query(collection(db, 'patients'), where('phone', '==', clean), limit(20)))
+    ]);
 
-    const promises = [];
-
-    // 1. Direct equality queries across all possible phone values
-    for (const val of possibleValues) {
-      promises.push(safeQuery(query(collection(db, 'allpatients'), where('phone', '==', val), limit(20))));
-      promises.push(safeQuery(query(collection(db, 'patients'), where('phone', '==', val), limit(20))));
-      promises.push(safeQuery(query(collection(db, 'allpatients'), where('patientPhone', '==', val), limit(20))));
-      promises.push(safeQuery(query(collection(db, 'patients'), where('patientPhone', '==', val), limit(20))));
-      promises.push(safeQuery(query(collection(db, 'users'), where('phone', '==', val), limit(20))));
-    }
-
-    // 2. Comprehensive fallback scan of recent records to guarantee matching regardless of format
-    promises.push(safeQuery(query(collection(db, 'allpatients'), limit(150))));
-    promises.push(safeQuery(query(collection(db, 'patients'), limit(150))));
-
-    const snapshots = await Promise.all(promises);
     const profilesMap = new Map();
-
-    snapshots.forEach(snap => {
-      if (!snap || snap.empty) return;
+    [snapAll, snapPatients].forEach(snap => {
+      if (!snap || snap.empty || !snap.forEach) return;
       snap.forEach(docSnap => {
         const data = docSnap.data();
         const pName = data.fullName || data.patientName || data.name;
         const docPhone = data.phone || data.patientPhone || data.phoneNumber || data.mobile || '';
         const cleanDocPhone = String(docPhone).replace(/\D/g, '').slice(-10);
 
-        if (pName && cleanDocPhone.length === 10 && cleanDocPhone === clean) {
+        if (pName && (cleanDocPhone === clean || cleanDocPhone.length === 10)) {
           const key = (data.registrationId || data.regId || docSnap.id).toLowerCase();
           if (!profilesMap.has(key)) {
             profilesMap.set(key, {
@@ -299,7 +276,9 @@ const RegisterPatient = ({ route, navigation, setActiveTab }) => {
       });
     });
 
-    return Array.from(profilesMap.values());
+    const resultList = Array.from(profilesMap.values());
+    setPhoneCheckResult(resultList);
+    return resultList;
   };
 
   const handleManualPhoneCheck = async (phoneVal) => {
@@ -683,6 +662,7 @@ const RegisterPatient = ({ route, navigation, setActiveTab }) => {
             activeNoShows.push(ns);
           }
         });
+        setCachedNoShows(activeNoShows);
 
         const today = new Date();
         const isSelectedDateToday =
@@ -989,21 +969,8 @@ const RegisterPatient = ({ route, navigation, setActiveTab }) => {
       const dateString = `${year}-${month}-${day}`;
       const dateSlash = `${day}/${month}/${year}`;
 
-      // Check if slot falls in a Doctor No Show block
-      const qNoShows = query(
-        collection(db, 'doctor_no_shows'),
-        where('doctorId', '==', patientData.doctor.id)
-      );
-      const snapNoShows = await getDocs(qNoShows);
-      const activeNoShows = [];
-      const normFormBranch = (patientData.branch.name || '').toLowerCase().replace(/\s*branch\s*/i, '').trim();
-      snapNoShows.forEach(docSnap => {
-        const ns = docSnap.data();
-        const nsBranch = (ns.branchName || ns.branchId || '').toLowerCase().replace(/\s*branch\s*/i, '').trim();
-        if (nsBranch === normFormBranch) {
-          activeNoShows.push(ns);
-        }
-      });
+      // Check if slot falls in a Doctor No Show block using cached list
+      const activeNoShows = cachedNoShows;
 
       if (isSlotBlockedByNoShow(patientData.timeSlot, dateString, activeNoShows)) {
         Alert.alert('Cannot Book', `Dr. ${patientData.doctor.name} is marked as NO SHOW (unavailable) for this time period.`);
@@ -1035,25 +1002,9 @@ const RegisterPatient = ({ route, navigation, setActiveTab }) => {
         setLoading(false);
         return;
       }
-      // Calculate queueOrder by querying existing bookings for this doctor, branch, and date from allpatients
-      let nextQueueOrder = 1;
-      try {
-        const qPatients = query(
-          collection(db, 'allpatients'),
-          where('appointmentDate', '==', dateSlash),
-          where('branchId', '==', patientData.branch.id),
-          where('doctor', '==', patientData.doctor.name)
-        );
-
-        const snapPatients = await getDocs(qPatients);
-        nextQueueOrder = snapPatients.size + 1;
-      } catch (err) {
-        console.error('Error calculating queue order:', err);
-      }
-
-      // Check if phone number has existing profiles before creating
+      // Check if phone number has existing profiles before creating (reuses input-time check if cached)
       if (!bypassPhoneCheck && !patientData.patientId && patientData.phone) {
-        const foundProfiles = await findProfilesByPhone(patientData.phone);
+        const foundProfiles = phoneCheckResult !== null ? phoneCheckResult : await findProfilesByPhone(patientData.phone);
         if (foundProfiles.length > 0) {
           setExistingProfilesList(foundProfiles);
           setCheckedPhone(patientData.phone.replace(/\D/g, '').slice(-10));
@@ -1067,36 +1018,52 @@ const RegisterPatient = ({ route, navigation, setActiveTab }) => {
       let regId = patientData.patientId && patientData.regID ? patientData.regID : null;
       const rawPhone = (patientData.phone || '').trim();
       const cleanPhone = rawPhone.replace(/\D/g, '').slice(-10);
-
-      let existingInDuration = false;
-      let existingFollowUpDate = '';
-
-      if (finalPatientId) {
-        try {
-          const patientSnap = await getDoc(doc(db, 'patients', finalPatientId));
-          if (patientSnap.exists() && patientSnap.data().followUpDate) {
-            const fUp = patientSnap.data().followUpDate;
-            if (checkIsInDuration(fUp)) {
-              existingInDuration = true;
-              existingFollowUpDate = fUp;
-            }
-          } else {
-            const allPatSnap = await getDoc(doc(db, 'allpatients', finalPatientId));
-            if (allPatSnap.exists() && allPatSnap.data().followUpDate) {
-              const fUp = allPatSnap.data().followUpDate;
-              if (checkIsInDuration(fUp)) {
-                existingInDuration = true;
-                existingFollowUpDate = fUp;
-              }
-            }
-          }
-        } catch (err) {
-          console.warn("Could not check in-duration for walk-in patient:", err);
-        }
-      }
-
       const branchForId = patientData.branch.name || patientData.branch.id || 'KPHB';
-      regId = regId || await generateRegistrationId(branchForId);
+
+      // PARALLEL EXECUTION OF ALL PRE-BOOKING FIRESTORE CHECKS (Instant 3-in-1 Parallel Batch)
+      const queueOrderPromise = (async () => {
+        try {
+          const qPatients = query(
+            collection(db, 'allpatients'),
+            where('appointmentDate', '==', dateSlash),
+            where('branchId', '==', patientData.branch.id),
+            where('doctor', '==', patientData.doctor.name)
+          );
+          const snapPatients = await getDocs(qPatients);
+          return snapPatients.size + 1;
+        } catch (err) {
+          return 1;
+        }
+      })();
+
+      const durationCheckPromise = (async () => {
+        if (!finalPatientId) return { existingInDuration: false, existingFollowUpDate: '' };
+        try {
+          const [patSnap, allPatSnap] = await Promise.all([
+            getDoc(doc(db, 'patients', finalPatientId)).catch(() => null),
+            getDoc(doc(db, 'allpatients', finalPatientId)).catch(() => null)
+          ]);
+          let fUp = (patSnap && patSnap.exists && patSnap.exists()) ? patSnap.data().followUpDate : null;
+          if (!fUp && allPatSnap && allPatSnap.exists && allPatSnap.exists()) fUp = allPatSnap.data().followUpDate;
+          if (fUp && checkIsInDuration(fUp)) {
+            return { existingInDuration: true, existingFollowUpDate: fUp };
+          }
+        } catch (err) { }
+        return { existingInDuration: false, existingFollowUpDate: '' };
+      })();
+
+      const regIdPromise = regId ? Promise.resolve(regId) : generateRegistrationId(branchForId).catch(() => `SPH-${branchForId.substring(0, 4).toUpperCase()}-${Date.now().toString().slice(-4)}`);
+
+      // Await all 3 checks in 1 single parallel round-trip!
+      const [nextQueueOrder, durationRes, generatedRegId] = await Promise.all([
+        queueOrderPromise,
+        durationCheckPromise,
+        regIdPromise
+      ]);
+
+      regId = generatedRegId;
+      const existingInDuration = durationRes.existingInDuration;
+      const existingFollowUpDate = durationRes.existingFollowUpDate;
 
       // Save to state so subsequent checkout flows can use it
       setPatientData(prev => ({ ...prev, regID: regId }));
@@ -1341,24 +1308,22 @@ const RegisterPatient = ({ route, navigation, setActiveTab }) => {
         };
       }
 
-      // 1. Update the patient/visit record directly in the allpatients collection
-      const allPatientsRef = doc(db, 'allpatients', createdPatientId);
-      await updateDoc(allPatientsRef, updateDataAppt);
-      await updateDoc(allPatientsRef, {
+      // 1. Parallel execution of all database updates for direct payment (Instant Batch Write)
+      const updateDocPromise = updateDoc(doc(db, 'allpatients', createdPatientId), {
+        ...updateDataAppt,
         paymentStatus: 'paid',
         paymentAmount: amount,
         paymentMethod: checkoutPaymentMethod,
         paymentCollectedAt: serverTimestamp()
       });
 
-      // 3. Add to revenue transactions log
-      await addDoc(collection(db, 'alltransactions'), {
+      const addTxPromise = addDoc(collection(db, 'alltransactions'), {
         type: 'consultation',
         patientId: createdPatientId,
         patientName: patientData.patientName,
         phone: patientData.phone || '',
-        registrationId: regId || '',
-        regId: regId || '',
+        registrationId: patientData.regID || '',
+        regId: patientData.regID || '',
         source: patientData.source || 'Walk-in',
         doctor: patientData.doctor?.name || '',
         amount: amount,
@@ -1370,8 +1335,7 @@ const RegisterPatient = ({ route, navigation, setActiveTab }) => {
         timestamp: serverTimestamp()
       });
 
-      // 4. Add to patient_list
-      await addDoc(collection(db, 'patient_list'), {
+      const addPatientListPromise = addDoc(collection(db, 'patient_list'), {
         patientId: createdPatientId,
         fullName: patientData.patientName,
         phone: patientData.phone || '',
@@ -1392,21 +1356,9 @@ const RegisterPatient = ({ route, navigation, setActiveTab }) => {
         timestamp: serverTimestamp()
       });
 
-      // 5. Update monthly target reached count
-      const today = new Date();
-      const monthKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
-      const branchId = userData?.branchId || patientData.branch?.id;
-      if (branchId) {
-        const targetsRef = collection(db, 'monthly_targets');
-        const q = query(targetsRef, where('month', '==', monthKey), where('branchId', '==', branchId));
-        const snapshot = await getDocs(q);
-        if (!snapshot.empty) {
-          const targetDoc = snapshot.docs[0];
-          await updateDoc(doc(db, 'monthly_targets', targetDoc.id), {
-            reached: (targetDoc.data().reached || 0) + Number(amount || 0)
-          });
-        }
-      }
+      await Promise.all([updateDocPromise, addTxPromise, addPatientListPromise]);
+
+      // 5. Monthly target reached is calculated dynamically from live transactions
 
       // Show confirmation success screen
       stopRzpPolling();
@@ -2756,4 +2708,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default RegisterPatient;
+export default React.memo(RegisterPatient, () => true);

@@ -1,10 +1,10 @@
 import React, { useEffect } from 'react';
-React.useEffect = useEffect;
-import { View, StyleSheet, ScrollView, TouchableOpacity, Image, RefreshControl, Modal, Dimensions, Alert, Platform, TextInput as RNTextInput, NativeModules, KeyboardAvoidingView, Linking } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Image, RefreshControl, Modal, Dimensions, Alert, Platform, TextInput as RNTextInput, NativeModules, KeyboardAvoidingView, Linking, InteractionManager } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, Surface, IconButton, ActivityIndicator, Avatar, Chip, Button, TextInput, Menu as PaperMenu } from 'react-native-paper';
 import { useAuth } from '../context/AuthContext';
 import { auth } from '../firebase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Clock, IndianRupee, FileCheck, MapPin, CheckCircle2, AlertCircle, LogOut, Users, Calendar, UserPlus, ChevronRight, ChevronLeft, Stethoscope, User, PlusCircle, ArrowRight, Clipboard, RefreshCw, Home, CalendarPlus, Fingerprint, Play, Eye, Menu, Package, FileText, Bell, CreditCard, Trash2, CalendarClock, X, Phone, MessageCircle, Target, Video, ChevronDown, CalendarDays, XCircle, Coins, Pill, ArrowUp, ArrowDown, Image as ImageIcon, Camera } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 const WhatsAppIcon = ({ size = 16, color = '#25d366' }) => (
@@ -50,10 +50,49 @@ const COLORS = {
   border: '#e2e8f0',
 };
 
+const getPatientCollectedFee = (p) => {
+  if (!p) return 0;
+  if (p.paymentAmount !== undefined && p.paymentAmount !== null && Number(p.paymentAmount) > 0) {
+    return Number(p.paymentAmount);
+  }
+  if (p.raw?.paymentAmount !== undefined && p.raw?.paymentAmount !== null && Number(p.raw.paymentAmount) > 0) {
+    return Number(p.raw.paymentAmount);
+  }
+  if (p.amountPaid !== undefined && p.amountPaid !== null && Number(p.amountPaid) > 0) {
+    return Number(p.amountPaid);
+  }
+  if (p.raw?.amountPaid !== undefined && p.raw?.amountPaid !== null && Number(p.raw.amountPaid) > 0) {
+    return Number(p.raw.amountPaid);
+  }
+  const items = p.itemsPaid || p.raw?.itemsPaid;
+  if (items) {
+    const itemsSum = Number(items.consultation || 0) + Number(items.medicine || 0) + Number(items.dietPlan || 0) + Number(items.package || 0);
+    if (itemsSum > 0) return itemsSum;
+  }
+  const splitDetails = p.paymentSplitDetails || p.raw?.paymentSplitDetails;
+  if (splitDetails) {
+    const splitSum = Object.values(splitDetails).reduce((acc, val) => acc + Number(val || 0), 0);
+    if (splitSum > 0) return splitSum;
+  }
+  const splitCounterUpi = Number(p.splitCounterAmount || p.raw?.splitCounterAmount || 0) + Number(p.splitUpiAmount || p.raw?.splitUpiAmount || 0);
+  if (splitCounterUpi > 0) return splitCounterUpi;
+
+  if (p.requestedAmount && Number(p.requestedAmount) > 0) {
+    return Number(p.requestedAmount);
+  }
+
+  const ps = (p.paymentStatus || p.raw?.paymentStatus || '').toLowerCase();
+  if (ps === 'paid') {
+    if (p.consultationFee && Number(p.consultationFee) > 0) return Number(p.consultationFee);
+    if (p.amount && Number(p.amount) > 0) return Number(p.amount);
+  }
+  return 0;
+};
+
 const isDashItemPaid = (p) => {
   if (!p) return false;
   const ps = (p.paymentStatus || p.raw?.paymentStatus || '').toLowerCase();
-  const pAmt = Number(p.paymentAmount || p.amountPaid || p.amount || p.raw?.paymentAmount || p.raw?.amountPaid || p.raw?.amount || 0);
+  const pAmt = getPatientCollectedFee(p);
   const hasCollectedAt = !!(p.paymentCollectedAt || p.raw?.paymentCollectedAt);
   const hasSplitDetails = !!(p.paymentSplitDetails || p.raw?.paymentSplitDetails || p.splitCounterAmount || p.raw?.splitCounterAmount);
   const hasItemsPaid = !!(p.itemsPaid || p.raw?.itemsPaid);
@@ -150,8 +189,7 @@ const generateReceiptHtml = (appt, logoBase64, userBranchName = '') => {
   const itemsSum = itemsPaidObj ? (Number(itemsPaidObj.consultation || 0) + Number(itemsPaidObj.medicine || 0) + Number(itemsPaidObj.dietPlan || 0) + Number(itemsPaidObj.package || 0)) : 0;
   const splitCounterUpi = (Number(appt.splitCounterAmount || 0) + Number(appt.splitUpiAmount || 0));
 
-  let totalAmount = Math.max(Number(appt.paymentAmount || appt.amount || appt.amountPaid || appt.requestedAmount || 0), splitSum, itemsSum, splitCounterUpi);
-  if (isTarget && totalAmount < 2000) totalAmount = 2000;
+  let totalAmount = getPatientCollectedFee(appt);
 
   if (itemsPaidObj) {
     const items = itemsPaidObj;
@@ -192,21 +230,12 @@ const generateReceiptHtml = (appt, logoBase64, userBranchName = '') => {
       });
     }
   } else {
-    const consAmt = totalAmount >= 2000 ? 1000 : totalAmount;
     paymentBreakdownRows += `
       <tr>
         <td style="padding:10px; border-bottom:1px solid #e2e8f0; font-size:13px; color:#475569;">Consultation & Medicine Fee</td>
-        <td style="padding:10px; border-bottom:1px solid #e2e8f0; font-size:13px; color:#1e293b; text-align:right;">₹${Number(consAmt).toFixed(2)}</td>
+        <td style="padding:10px; border-bottom:1px solid #e2e8f0; font-size:13px; color:#1e293b; text-align:right;">₹${Number(totalAmount).toFixed(2)}</td>
       </tr>
     `;
-    if (totalAmount >= 2000) {
-      paymentBreakdownRows += `
-        <tr>
-          <td style="padding:10px; border-bottom:1px solid #e2e8f0; font-size:13px; color:#475569;">Diet Plan Fee</td>
-          <td style="padding:10px; border-bottom:1px solid #e2e8f0; font-size:13px; color:#1e293b; text-align:right;">₹1000.00</td>
-        </tr>
-      `;
-    }
   }
   const patientName = appt.fullName || appt.patientName || 'Patient';
   const cleanPhone = (appt.phone || '').replace(/\D/g, '').slice(-10);
@@ -890,115 +919,139 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
 
   const fetchMonthlyTarget = React.useCallback(() => {
     if (!userData) return;
-    const roleLower = String(userData.role || '').toLowerCase().trim();
-    const isReception = roleLower.includes('reception') || roleLower.includes('branch') || roleLower === 'staff';
-    if (!isReception) return;
 
     try {
       const today = new Date();
-      const monthKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
-      const year = today.getFullYear();
-      const month = today.getMonth() + 1;
+      const currentYear = today.getFullYear();
+      const currentMonth = today.getMonth() + 1;
+      const monthKey = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
+      const userBranchStr = userData.branchName || userData.branchId || userData.branch || 'all';
+      const userBranchKey = userBranchStr.toLowerCase().trim();
+      const cacheTargetKey = `@sph_target_cache_${userBranchKey}_${monthKey}`;
+
+      // 1. Instant Cache Hydration for Target
+      AsyncStorage.getItem(cacheTargetKey).then(cachedStr => {
+        if (cachedStr) {
+          try {
+            const cached = JSON.parse(cachedStr);
+            if (cached.target !== undefined) setMonthlyTarget(cached.target);
+          } catch (e) { }
+        }
+      }).catch(() => { });
 
       const targetsRef = collection(db, 'monthly_targets');
       const qTarget = query(targetsRef, where('month', '==', monthKey));
 
-      let u1, u3;
-
-      const unsubscribeTarget = onSnapshot(qTarget, (snapshot) => {
+      const unsubscribeTarget = onSnapshot(qTarget, async (snapshot) => {
+        const normBranch = (val) => {
+          if (!val) return '';
+          const s = String(val).toLowerCase().trim();
+          if (s.includes('kphb') || s.includes('kphp') || s.includes('kph')) return 'kphb';
+          if (s.includes('chnr') || s.includes('chand') || s.includes('chn')) return 'chandanagar';
+          if (s.includes('dsnr') || s.includes('dil') || s.includes('dsn')) return 'dilshuknagar';
+          if (s.includes('nalla') || s.includes('ngl') || s.includes('nlg')) return 'nallagandla';
+          return s.replace(/\s*branch\s*/i, '').trim();
+        };
+        const rawB = userData?.branchName || userData?.branchId || userData?.branch || '';
+        let userB = normBranch(rawB);
+        if (!userB || userB === 'admin') {
+          const roleLower = (userData?.role || '').toLowerCase();
+          const isAdminOrHr = ['admin', 'hr', 'superadmin', 'management'].includes(roleLower);
+          if (isAdminOrHr && (!rawB || rawB.toLowerCase() === 'all' || rawB.toLowerCase() === 'admin')) {
+            userB = 'all';
+          } else {
+            userB = 'kphb';
+          }
+        }
+        let targetVal = 0;
         if (!snapshot.empty) {
-          const userB = (userData.branchName || userData.branchId || userData.branch || '').toLowerCase().trim();
-          const targetDoc = snapshot.docs.find(d => {
-            const data = d.data();
-            const bId = (data.branchId || '').toLowerCase().trim();
-            const bName = (data.branchName || '').toLowerCase().trim();
-            return !userB || bId.includes(userB) || userB.includes(bId) || bName.includes(userB) || userB.includes(bName);
-          }) || snapshot.docs[0];
+          if (userB === 'all') {
+            targetVal = snapshot.docs.reduce((sum, d) => sum + (Number(d.data().target) || 0), 0);
+          } else {
+            const targetDoc = snapshot.docs.find(d => {
+              const data = d.data();
+              const bId = normBranch(data.branchId);
+              const bName = normBranch(data.branchName);
+              return bId === userB || bName === userB || bId.includes(userB) || userB.includes(bId);
+            });
+            if (targetDoc) {
+              targetVal = Number(targetDoc.data().target) || 0;
+            }
+          }
+        }
+        // Live Grand Total Revenue aggregation from alltransactions (Exact Admin Formula)
+        try {
+          let txDocs = [];
+          const seenDocIds = new Set();
+          try {
+            const q1 = query(collection(db, 'alltransactions'), orderBy('timestamp', 'desc'), limit(1500));
+            const s1 = await getDocs(q1);
+            s1.forEach(d => {
+              if (!seenDocIds.has(d.id)) {
+                seenDocIds.add(d.id);
+                txDocs.push(d);
+              }
+            });
+          } catch (e) {
+            const s2 = await getDocs(query(collection(db, 'alltransactions'), limit(1500)));
+            s2.forEach(d => {
+              if (!seenDocIds.has(d.id)) {
+                seenDocIds.add(d.id);
+                txDocs.push(d);
+              }
+            });
+          }
 
-          const targetData = targetDoc.data();
-          setMonthlyTarget(targetData.target);
-          setTargetReached(targetData.reached || 0);
-
-          const branchId = userData.branchId || targetData.branchId;
-          const branchName = userData.branchName || targetData.branchName;
-
-          // Start dynamic Grand Total calculation identical to Admin
-          const parseD = (raw) => {
+          const parseAnyDate = (raw) => {
             if (!raw) return null;
-            if (raw.toDate) return raw.toDate();
+            if (raw.toDate && typeof raw.toDate === 'function') return raw.toDate();
             if (raw.seconds) return new Date(raw.seconds * 1000);
             if (typeof raw === 'string') {
-              const parts = raw.split(/[-/]/);
-              if (parts.length === 3) {
-                if (parts[2].length === 4) {
-                  return new Date(`${parts[2]}-${parts[1]}-${parts[0]}T12:00:00Z`);
+              const clean = raw.trim();
+              const dDirect = new Date(clean);
+              if (!isNaN(dDirect.getTime())) return dDirect;
+
+              const datePart = clean.split(' ')[0];
+              const parts = datePart.split(/[-/T]/);
+              if (parts.length >= 3) {
+                const p0 = parts[0].replace(/\D/g, '');
+                const p2 = parts[2].replace(/\D/g, '');
+                const y = parseInt(p0.length === 4 ? p0 : p2, 10);
+                const m = parseInt(parts[1], 10) - 1;
+                const d = parseInt(p0.length === 4 ? p2 : p0, 10);
+                if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+                  return new Date(y, m, d);
                 }
               }
             }
-            const d = new Date(raw); return isNaN(d.getTime()) ? null : d;
-          };
-          const matchesYM = (dateVal) => {
-            const d = parseD(dateVal);
-            if (!d) return false;
-            return d.getFullYear() === year && (d.getMonth() + 1) === month;
-          };
-          const isBranchMatchHelper = (itemBranchId, itemBranchName) => {
-            if (!branchId || branchId === 'all') return true;
-            const normalize = (val) => {
-              if (!val) return '';
-              const str = val.toLowerCase().trim();
-              if (str.includes('kphb')) return 'kphb';
-              if (str.includes('chnr') || str.includes('chandanagar') || str.includes('chandnagar')) return 'chandnagar';
-              if (str.includes('dsnr') || str.includes('dilsukhnagar') || str.includes('dilshuknagar')) return 'dilshuknagar';
-              if (str.includes('nallagandla')) return 'nallagandla';
-              return str.replace(/\s*branch\s*/i, '').trim();
-            };
-            const n1 = normalize(itemBranchId);
-            const n2 = normalize(itemBranchName);
-            const n3 = normalize(branchId);
-            const n4 = normalize(branchName);
-            return n1 === n3 || n1 === n4 || n2 === n3 || n2 === n4 || itemBranchId === branchId || itemBranchName === branchName;
-          };
-          const getExactAmt = (p) => {
-            if (p.paymentAmount !== undefined && p.paymentAmount !== null && p.paymentAmount !== '') return Number(p.paymentAmount);
-            if (p.amountPaid !== undefined && p.amountPaid !== null && p.amountPaid !== '') return Number(p.amountPaid);
-            if (p.itemsPaid?.consultation !== undefined) return Number(p.itemsPaid.consultation);
-            return 0;
+            return null;
           };
 
-          let txs = [];
-          const recalc = () => {
-            let total = 0;
+          let totalRevenue = 0;
 
-            txs.forEach(t => {
-              if (isBranchMatchHelper(t.branchId, t.branchName || t.branch) && matchesYM(t.timestamp || t.createdAt)) {
-                const tType = (t.type || '').toLowerCase();
-                const isAllowed = tType.includes('consultation') ||
-                  tType.includes('medicine') ||
-                  tType.includes('pharmacy') ||
-                  tType.includes('product') ||
-                  tType.includes('nutrition') ||
-                  tType.includes('diet') ||
-                  tType.includes('package');
-                if (isAllowed) {
-                  total += (Number(t.amount) || 0);
-                }
-              }
-            });
+          txDocs.forEach(tDoc => {
+            const t = tDoc.data();
+            if (t.isDeleted) return;
 
-            setTargetReached(total);
-          };
+            const tBranch = normBranch(t.branchName || t.branch || t.branchId || t.location || t.clinicBranch || t.raw?.branchName || t.raw?.branchId || t.raw?.branch || 'kphb') || 'kphb';
+            if (userB !== 'all' && tBranch && tBranch !== userB && !tBranch.includes(userB) && !userB.includes(tBranch)) return;
 
-          if (u3) u3();
-
-          const qTxs = query(collection(db, 'alltransactions'), limit(1000));
-          u3 = onSnapshot(qTxs, s => { txs = s.docs.map(d => ({ id: d.id, ...d.data() })); recalc(); }, (err) => {
-            console.warn('alltransactions snapshot warning:', err);
+            const tDate = parseAnyDate(t.timestamp || t.createdAt || t.date || t.paymentCollectedAt);
+            if (tDate && tDate.getFullYear() === currentYear && (tDate.getMonth() + 1) === currentMonth) {
+              const baseAmt = Number(t.amount || t.amountPaid || t.paymentAmount || 0);
+              const items = t.itemsPaid || null;
+              const itemsSum = items ? (Number(items.consultation || 0) + Number(items.medicine || 0) + Number(items.dietPlan || 0) + Number(items.package || 0)) : 0;
+              const amt = baseAmt > 0 ? baseAmt : itemsSum;
+              totalRevenue += amt;
+            }
           });
 
-        } else {
-          setMonthlyTarget(null);
-          setTargetReached(0);
+          setMonthlyTarget(targetVal);
+          setTargetReached(totalRevenue);
+
+          AsyncStorage.setItem(cacheTargetKey, JSON.stringify({ target: targetVal, reached: totalRevenue })).catch(() => { });
+        } catch (err) {
+          console.warn('Live monthly revenue calculation warning:', err);
         }
       }, (error) => {
         console.error('Error fetching monthly target:', error);
@@ -1006,12 +1059,11 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
 
       return () => {
         unsubscribeTarget();
-        if (u3) u3();
       };
     } catch (error) {
       console.error('Error setting up monthly target listener:', error);
     }
-  }, [userData?.branchId, userData?.role]);
+  }, [userData?.branchId, userData?.branchName, userData?.role]);
 
   const [activePackageMobiles, setActivePackageMobiles] = React.useState(new Set());
 
@@ -1371,17 +1423,30 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
 
     const normalizeBranchName = (name) => {
       if (!name) return 'Main Branch';
-      let normalized = name.trim();
-      if (normalized.toLowerCase().endsWith(' branch')) {
+      let normalized = String(name).trim();
+      const lower = normalized.toLowerCase();
+      if (lower.includes('kphb') || lower.includes('kphp') || lower.includes('kph')) return 'KPHB';
+      if (lower.includes('chnr') || lower.includes('chandanagar') || lower.includes('chandnagar') || lower.includes('chn')) return 'Chandanagar';
+      if (lower.includes('dsnr') || lower.includes('dilsukh') || lower.includes('dilshuk') || lower.includes('dsn')) return 'Dilshuknagar';
+      if (lower.includes('nallagandla') || lower.includes('ngl') || lower.includes('nlg') || lower.includes('nalla')) return 'Nallagandla';
+      if (lower.endsWith(' branch')) {
         normalized = normalized.substring(0, normalized.length - 7).trim();
       }
       return normalized;
     };
 
+    // Pre-populate all 4 standard clinic branches
+    const standardBranches = ['KPHB', 'Dilshuknagar', 'Chandanagar', 'Nallagandla'];
+    standardBranches.forEach(normName => {
+      stats[normName] = { revenue: 0, patients: 0, followUpOpted: 0, followUpNotOpted: 0, name: normName };
+    });
+
     hrBranches.forEach(b => {
       const rawName = b.name || b.branchName || 'Main Branch';
       const normName = normalizeBranchName(rawName);
-      stats[normName] = { revenue: 0, patients: 0, followUpOpted: 0, followUpNotOpted: 0, name: normName };
+      if (!stats[normName]) {
+        stats[normName] = { revenue: 0, patients: 0, followUpOpted: 0, followUpNotOpted: 0, name: normName };
+      }
     });
 
     const processedPatients = new Set();
@@ -1581,7 +1646,9 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
   }, [hrSelectedBranchId, hrSelectedDate, hrBranches, hrTransactions, hrAppointments, hrPatients]);
 
   React.useEffect(() => {
-    if (!userData || userData.role !== 'hr') return;
+    const roleLower = String(userData?.role || '').toLowerCase();
+    const isAllowedHrAdmin = ['hr', 'admin', 'superadmin', 'manager', 'management'].includes(roleLower);
+    if (!userData || !isAllowedHrAdmin) return;
 
     setHrAnalyticsLoading(true);
 
@@ -1656,20 +1723,20 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
 
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
-    setPatientsLoading(true);
     try {
-      await fetchLastPunch();
-      await fetchMonthlyMetrics();
-      await fetchMyLeaves();
+      fetchMonthlyTarget();
+      const refreshPromises = [];
+      if (typeof fetchLastPunch === 'function') refreshPromises.push(fetchLastPunch());
+      if (typeof fetchMonthlyMetrics === 'function') refreshPromises.push(fetchMonthlyMetrics());
+      if (typeof fetchMyLeaves === 'function') refreshPromises.push(fetchMyLeaves());
+      await Promise.all(refreshPromises);
     } catch (e) {
       console.error("Refresh error:", e);
     } finally {
-      setTimeout(() => {
-        setPatientsLoading(false);
-        setRefreshing(false);
-      }, 400);
+      setPatientsLoading(false);
+      setRefreshing(false);
     }
-  }, [userData, fetchMonthlyMetrics, fetchMyLeaves]);
+  }, [userData, fetchMonthlyMetrics, fetchMyLeaves, fetchMonthlyTarget]);
 
   const fetchLastPunch = async () => {
     if (!auth.currentUser) return;
@@ -1677,7 +1744,7 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
       const q = query(
         collection(db, 'activity_logs'),
         where('userId', '==', auth.currentUser.uid),
-        where('action', 'in', ['login', 'logout'])
+        limit(20)
       );
       const snap = await getDocs(q);
       if (!snap.empty) {
@@ -1749,7 +1816,22 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
 
   React.useEffect(() => {
     if (!userData) return;
-    setPatientsLoading(true);
+
+    const userBranchKey = (userData.branchId || userData.branchName || userData.branch || 'default').toLowerCase().trim();
+    const cachePatientsKey = `@sph_patients_cache_${userBranchKey}`;
+
+    // Instant Cache Hydration for Patients on App Open
+    AsyncStorage.getItem(cachePatientsKey).then(cachedStr => {
+      if (cachedStr) {
+        try {
+          const cached = JSON.parse(cachedStr);
+          if (Array.isArray(cached) && cached.length > 0) {
+            setTodayPatients(cached);
+            setPatientsLoading(false);
+          }
+        } catch (e) { }
+      }
+    }).catch(() => { });
 
     const unsubscribeTarget = fetchMonthlyTarget();
 
@@ -1777,7 +1859,7 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
 
       const parseTimeStr = (timeStr) => {
         if (!timeStr || timeStr === 'N/A') return 9999;
-        const match = timeStr.match(/(\\d+):(\\d+)\\s*(AM|PM)/i);
+        const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM)/i);
         if (!match) return 9999;
         let hours = parseInt(match[1], 10);
         const mins = parseInt(match[2], 10);
@@ -1803,6 +1885,7 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
       });
       setTodayPatients(sorted);
       setPatientsLoading(false);
+      AsyncStorage.setItem(cachePatientsKey, JSON.stringify(sorted)).catch(() => { });
     };
 
     const todayObj = new Date();
@@ -1842,9 +1925,9 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
     const yDashDate = `${yYear}-${yMonth}-${yDay}`;
 
     const combinedDates = Array.from(new Set([
-      targetSlashDate, targetDashDate,
-      todaySlashDate, todayDashDate,
-      ySlashDate, yDashDate
+      targetSlashDate,
+      targetDashDate,
+      ...generateDateVariants(dashboardDate)
     ])).slice(0, 10);
 
     if (userData.role === 'doctor') {
@@ -3071,13 +3154,16 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
       const collectionName = selectedPatientForPayment.firestoreCollection || (selectedPatientForPayment._type === 'online' ? 'appointments' : 'patients');
       const ref = doc(db, collectionName, selectedPatientForPayment.id);
       const currentStatus = selectedPatientForPayment.status;
+      const sLower = String(currentStatus || '').toLowerCase();
+      const docSLower = String(selectedPatientForPayment.doctorStatus || '').toLowerCase();
+      const isFinishedConsultation = sLower === 'completed' || sLower === 'done' || sLower === 'prescribed' || sLower === 'consulted' || sLower === 'completed_today' || docSLower === 'prescribed' || docSLower === 'done';
 
       const updateData = {
         paymentStatus: 'paid',
         paymentAmount: Number(feeAmount),
         paymentMethod: usedMethod,
         paymentCollectedAt: serverTimestamp(),
-        status: (currentStatus === 'completed' || currentStatus === 'done' || currentStatus === 'prescribed') ? 'done' : (currentStatus === 'pending' ? 'waiting' : (currentStatus || 'waiting')),
+        status: isFinishedConsultation ? 'done' : (sLower === 'pending' ? 'waiting' : (currentStatus || 'waiting')),
         paymentId: razorpayPaymentId || (selectedPatientForPayment._type === 'online' ? 'ONLINE_' : 'WALKIN_') + usedMethod.toUpperCase(),
         itemsPaid: itemsPaid,
         includeDiet: includeDiet,
@@ -3376,22 +3462,7 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
         timestamp: serverTimestamp()
       });
 
-      // Update monthly target reached count
-      const today = new Date();
-      const monthKey = `${today.getFullYear()} -${String(today.getMonth() + 1).padStart(2, '0')} `;
-      const branchId = userData?.branchId || selectedPatientForPayment.branchId;
-
-      if (branchId) {
-        const targetsRef = collection(db, 'monthly_targets');
-        const q = query(targetsRef, where('month', '==', monthKey), where('branchId', '==', branchId));
-        const snapshot = await getDocs(q);
-        if (!snapshot.empty) {
-          const targetDoc = snapshot.docs[0];
-          await updateDoc(doc(db, 'monthly_targets', targetDoc.id), {
-            reached: (targetDoc.data().reached || 0) + Number(feeAmount || 0)
-          });
-        }
-      }
+      // monthly_targets reached is calculated dynamically from live transactions
 
       // Create detailed payment receipt notification for patient in Firestore & send push notification
       try {
@@ -4059,37 +4130,7 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
 
 
 
-  if (authLoading || (!effectiveUserData && auth.currentUser && !profileCheckDone)) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.background }}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={{ marginTop: 12, color: COLORS.muted }}>Loading Profile...</Text>
-      </View>
-    );
-  }
 
-  if (!effectiveUserData && auth.currentUser && profileCheckDone) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.background, padding: 24 }}>
-        <AlertCircle size={48} color={COLORS.danger} style={{ marginBottom: 16 }} />
-        <Text style={{ fontSize: 18, fontWeight: 'bold', color: COLORS.text, textAlign: 'center', marginBottom: 8 }}>
-          Profile Not Found
-        </Text>
-        <Text style={{ fontSize: 14, color: COLORS.muted, textAlign: 'center', marginBottom: 24, lineHeight: 20 }}>
-          Your authenticated account is not registered as active staff. Please contact the clinic administrator to set up your staff profile.
-        </Text>
-        <Button
-          mode="contained"
-          buttonColor={COLORS.secondary}
-          textColor="#fff"
-          onPress={() => auth.signOut()}
-          style={{ borderRadius: 10, width: '80%' }}
-        >
-          Logout / Sign In Again
-        </Button>
-      </View>
-    );
-  }
 
   const isMatchingDate = (dateStr, targetDate) => {
     if (!dateStr) return false;
@@ -4153,51 +4194,146 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
     return false;
   };
 
-  const todayPatientsFiltered = todayPatients.filter(p => {
-    const isToday = isMatchingDate(p.appointmentDate, dashboardDate);
-    return isToday;
-  });
+  const todayPatientsFiltered = React.useMemo(() => {
+    return todayPatients.filter(p => {
+      const isToday = isMatchingDate(p.appointmentDate, dashboardDate);
+      return isToday;
+    });
+  }, [todayPatients, dashboardDate]);
 
-  const upcomingToDisplay = allUpcomingAppointments.filter(p => {
-    if (dashSelectedBranch !== 'All Branches') {
-      const bName = normalizeBranchName(p.branchName || p.branchId);
-      if (bName !== dashSelectedBranch) return false;
-    }
-    return isMatchingDate(p.appointmentDate || p.dateString, dashboardDate);
-  });
+  const upcomingToDisplay = React.useMemo(() => {
+    return allUpcomingAppointments.filter(p => {
+      if (dashSelectedBranch !== 'All Branches') {
+        const bName = normalizeBranchName(p.branchName || p.branchId);
+        if (bName !== dashSelectedBranch) return false;
+      }
+      return isMatchingDate(p.appointmentDate || p.dateString, dashboardDate);
+    });
+  }, [allUpcomingAppointments, dashSelectedBranch, dashboardDate]);
 
   // DOCTOR SPECIFIC COUNTS
-  const doctorPatients = todayPatientsFiltered.filter(p => {
-    if (!p.doctor) return false;
+  const doctorPatients = React.useMemo(() => {
     const docNorm = normalizeDoctorName(userData?.name || '');
-    const patDocNorm = normalizeDoctorName(p.doctor);
-    return patDocNorm && docNorm && (patDocNorm.includes(docNorm) || docNorm.includes(patDocNorm));
-  });
-
-  const docBranchFiltered = doctorPatients.filter(p => dashSelectedBranch === 'All Branches' || normalizeBranchName(p.branchName || p.branchId) === dashSelectedBranch);
-
-  const docActiveCount = docBranchFiltered.filter(p => {
-    const isCompleted = p.status === 'completed' || p.doctorStatus === 'prescribed' || p.status === 'done';
-    const isOnlineUnpaid = p.status === 'booked' && p.paymentStatus !== 'paid';
-    return !isCompleted && !isOnlineUnpaid;
-  }).length;
-
-  const docCompletedCount = docBranchFiltered.filter(p => p.status === 'completed' || p.doctorStatus === 'prescribed' || p.status === 'done').length;
+    return todayPatientsFiltered.filter(p => {
+      if (!p.doctor) return false;
+      const patDocNorm = normalizeDoctorName(p.doctor);
+      return patDocNorm && docNorm && (patDocNorm.includes(docNorm) || docNorm.includes(patDocNorm));
+    });
+  }, [todayPatientsFiltered, userData?.name]);
+  const docBranchFiltered = React.useMemo(() => {
+    return doctorPatients.filter(p => dashSelectedBranch === 'All Branches' || normalizeBranchName(p.branchName || p.branchId) === dashSelectedBranch);
+  }, [doctorPatients, dashSelectedBranch]);
+  const docActiveCount = React.useMemo(() => {
+    return docBranchFiltered.filter(p => {
+      const s = String(p.status || '').toLowerCase();
+      const docS = String(p.doctorStatus || '').toLowerCase();
+      const isCompleted = ['completed', 'done', 'prescribed', 'consulted', 'completed_today'].includes(s) || docS === 'prescribed';
+      const isOnlineUnpaid = s === 'booked' && p.paymentStatus !== 'paid';
+      return !isCompleted && !isOnlineUnpaid;
+    }).length;
+  }, [docBranchFiltered]);
+  const docCompletedCount = React.useMemo(() => {
+    return docBranchFiltered.filter(p => {
+      const s = String(p.status || '').toLowerCase();
+      const docS = String(p.doctorStatus || '').toLowerCase();
+      return ['completed', 'done', 'prescribed', 'consulted', 'completed_today'].includes(s) || docS === 'prescribed';
+    }).length;
+  }, [docBranchFiltered]);
   const docTotalCount = docBranchFiltered.length;
+  const isDashItemPaid = React.useCallback((p) => {
+    if (!p) return false;
+    const ps = (p.paymentStatus || p.raw?.paymentStatus || '').toLowerCase();
+    const pAmt = getPatientCollectedFee(p);
+    const hasCollectedAt = !!(p.paymentCollectedAt || p.raw?.paymentCollectedAt);
+    const hasSplitDetails = !!(p.paymentSplitDetails || p.raw?.paymentSplitDetails || p.splitCounterAmount || p.raw?.splitCounterAmount);
+    const hasItemsPaid = !!(p.itemsPaid || p.raw?.itemsPaid);
+    return ps === 'paid' || pAmt > 0 || hasCollectedAt || hasSplitDetails || (hasItemsPaid && (p.itemsPaid?.consultation > 0 || p.itemsPaid?.medicine > 0 || p.itemsPaid?.dietPlan > 0));
+  }, []);
+  const branchFilteredTodayPatients = React.useMemo(() => {
+    return todayPatientsFiltered.filter(p => {
+      if (dashSelectedBranch !== 'All Branches') {
+        const bName = normalizeBranchName(p.branchName || p.branchId);
+        if (bName !== dashSelectedBranch) return false;
+      }
+      return true;
+    });
+  }, [todayPatientsFiltered, dashSelectedBranch]);
 
-  const waitingCount = todayPatientsFiltered.filter(p => ['waiting', 'booked', 'confirmed', 'pending'].includes(p.status)).length;
-  const inConsultationCount = todayPatientsFiltered.filter(p => p.status === 'in-consultation').length;
-  const completedPaidCount = todayPatientsFiltered.filter(p => (p.status === 'completed' || p.status === 'done' || p.doctorStatus === 'prescribed') && p.paymentStatus === 'paid').length;
-  const completedUnpaidCount = todayPatientsFiltered.filter(p => (p.status === 'completed' || p.status === 'done' || p.doctorStatus === 'prescribed') && p.paymentStatus !== 'paid').length;
-  const doneCount = todayPatientsFiltered.filter(p => p.status === 'completed' || p.status === 'done' || p.doctorStatus === 'prescribed').length;
-  const followUpOptedCount = todayPatientsFiltered.filter(p => (p.status === 'completed' || p.status === 'done' || p.doctorStatus === 'prescribed') && p.followUpInterval && p.followUpInterval !== 'No Follow-up' && p.followUpInterval !== '').length;
-  const followUpNotOptedCount = doneCount - followUpOptedCount;
-
+  const upcomingWaitingList = React.useMemo(() => {
+    return branchFilteredTodayPatients.filter(p => {
+      const s = (p.status || '').toLowerCase();
+      const docS = (p.doctorStatus || '').toLowerCase();
+      const isConsultCompleted = s === 'done' || s === 'completed' || s === 'consulted' || s === 'completed_today' || docS === 'prescribed';
+      return ['booked', 'waiting', 'confirmed', 'pending', 'checked-in'].includes(s) && !isConsultCompleted;
+    });
+  }, [branchFilteredTodayPatients]);
+  const activeConsultationsList = React.useMemo(() => {
+    return branchFilteredTodayPatients.filter(p => {
+      const s = (p.status || '').toLowerCase();
+      const docS = (p.doctorStatus || '').toLowerCase();
+      const isConsultCompleted = s === 'done' || s === 'completed' || s === 'consulted' || s === 'completed_today' || docS === 'prescribed' || p.sentToReception || p.sent_to_reception;
+      const isInConsultation = s === 'in-consultation' || s === 'consulting';
+      // Patient remains in Active Consultations while in-consultation OR when sent to reception/prescribed until payment is collected
+      return (isInConsultation || isConsultCompleted) && !isDashItemPaid(p);
+    });
+  }, [branchFilteredTodayPatients, isDashItemPaid]);
+  const completedTodayList = React.useMemo(() => {
+    return branchFilteredTodayPatients.filter(p => {
+      const s = (p.status || '').toLowerCase();
+      const docS = (p.doctorStatus || '').toLowerCase();
+      const isConsultCompleted = s === 'done' || s === 'completed' || s === 'consulted' || s === 'completed_today' || docS === 'prescribed';
+      return isConsultCompleted && isDashItemPaid(p);
+    });
+  }, [branchFilteredTodayPatients, isDashItemPaid]);
+  const payPendingList = React.useMemo(() => {
+    return branchFilteredTodayPatients.filter(p => {
+      const s = (p.status || '').toLowerCase();
+      const docS = (p.doctorStatus || '').toLowerCase();
+      const isConsultCompleted = s === 'done' || s === 'completed' || s === 'consulted' || s === 'completed_today' || docS === 'prescribed';
+      return isConsultCompleted && !isDashItemPaid(p);
+    });
+  }, [branchFilteredTodayPatients, isDashItemPaid]);
+  const waitingCount = upcomingWaitingList.length;
+  const inConsultationCount = activeConsultationsList.length;
+  const completedPaidCount = completedTodayList.length;
+  const completedUnpaidCount = payPendingList.length;
+  const doneCount = completedPaidCount;
+  const followUpOptedCount = completedTodayList.filter(p => p.followUpInterval && p.followUpInterval !== 'No Follow-up' && p.followUpInterval !== '').length;
+  const followUpNotOptedCount = completedTodayList.filter(p => !p.followUpInterval || p.followUpInterval === 'No Follow-up' || p.followUpInterval === '').length;
   // Identify next/upcoming patient (the oldest waiting patient)
   const nextPatient = todayPatientsFiltered
     .filter(p => p.status === 'waiting')
     .reverse()[0];
-
+  if (authLoading || (!effectiveUserData && auth.currentUser && !profileCheckDone)) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.background }}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={{ marginTop: 12, color: COLORS.muted }}>Loading Profile...</Text>
+      </View>
+    );
+  }
+  if (!effectiveUserData && auth.currentUser && profileCheckDone) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.background, padding: 24 }}>
+        <AlertCircle size={48} color={COLORS.danger} style={{ marginBottom: 16 }} />
+        <Text style={{ fontSize: 18, fontWeight: 'bold', color: COLORS.text, textAlign: 'center', marginBottom: 8 }}>
+          Profile Not Found
+        </Text>
+        <Text style={{ fontSize: 14, color: COLORS.muted, textAlign: 'center', marginBottom: 24, lineHeight: 20 }}>
+          Your authenticated account is not registered as active staff. Please contact the clinic administrator to set up your staff profile.
+        </Text>
+        <Button
+          mode="contained"
+          buttonColor={COLORS.secondary}
+          textColor="#fff"
+          onPress={() => auth.signOut()}
+          style={{ borderRadius: 10, width: '80%' }}
+        >
+          Logout / Sign In Again
+        </Button>
+      </View>
+    );
+  }
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header Section */}
@@ -4754,38 +4890,35 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
           />
         }
       >
-
-
-
-
-
-        {/* RECEPTIONIST MAIN VIEW */}
-        {userData?.role === 'receptionist' && !isEmailLogin ? (
+        {/* RECEPTIONIST & ADMIN MAIN VIEW */}
+        {(userData?.role !== 'doctor' && userData?.role !== 'staff') ? (
           <View>
             {/* Global Appointments Summary */}
 
             {/* Global Date Filter */}
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
               <Text style={{ fontSize: 16, fontWeight: '700', color: COLORS.text }}>Overview</Text>
-              <TouchableOpacity
-                style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: COLORS.border, flexShrink: 1, maxWidth: 140 }}
-                onPress={() => setShowDashboardDatePicker(true)}
-              >
-                <CalendarClock size={16} color={COLORS.primary} style={{ marginRight: 6, flexShrink: 0 }} />
-                <Text style={{ fontSize: 14, fontWeight: '600', color: COLORS.text }} numberOfLines={1}>
-                  {dashboardDate.getDate() === new Date().getDate() && dashboardDate.getMonth() === new Date().getMonth() && dashboardDate.getFullYear() === new Date().getFullYear()
-                    ? 'Today'
-                    : dashboardDate.toLocaleDateString('en-GB')}
-                </Text>
-              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <TouchableOpacity
+                  style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: COLORS.border, flexShrink: 1, maxWidth: 140 }}
+                  onPress={() => setShowDashboardDatePicker(true)}
+                >
+                  <CalendarClock size={16} color={COLORS.primary} style={{ marginRight: 6, flexShrink: 0 }} />
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: COLORS.text }} numberOfLines={1}>
+                    {dashboardDate.getDate() === new Date().getDate() && dashboardDate.getMonth() === new Date().getMonth() && dashboardDate.getFullYear() === new Date().getFullYear()
+                      ? 'Today'
+                      : dashboardDate.toLocaleDateString('en-GB')}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* Monthly Target Display */}
-            {monthlyTarget ? (() => {
+            {(() => {
               const targetNum = Number(monthlyTarget) || 0;
               const reachedNum = Number(targetReached) || 0;
               const remaining = Math.max(targetNum - reachedNum, 0);
-              const isReached = reachedNum >= targetNum;
+              const isReached = targetNum > 0 && reachedNum >= targetNum;
 
               const today = new Date();
               const nextWeek = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 7);
@@ -4834,12 +4967,9 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
                       <Text style={{ fontSize: 16, fontWeight: '800', color: isWarning ? '#dc2626' : valueColor }} numberOfLines={1} adjustsFontSizeToFit>₹{remaining.toLocaleString()}</Text>
                     </View>
                   </View>
-
-
                 </View>
               );
-            })() : null}
-
+            })()}
             {showDashboardDatePicker && (
               <DateTimePicker
                 value={dashboardDate}
@@ -4854,80 +4984,54 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
                 onDismiss={() => setShowDashboardDatePicker(false)}
               />
             )}
-
             {(() => {
-              const isDashItemPaid = (p) => {
-                if (!p) return false;
-                const ps = (p.paymentStatus || p.raw?.paymentStatus || '').toLowerCase();
-                const pAmt = Number(p.paymentAmount || p.amountPaid || p.amount || p.raw?.paymentAmount || p.raw?.amountPaid || p.raw?.amount || 0);
-                const hasCollectedAt = !!(p.paymentCollectedAt || p.raw?.paymentCollectedAt);
-                const hasSplitDetails = !!(p.paymentSplitDetails || p.raw?.paymentSplitDetails || p.splitCounterAmount || p.raw?.splitCounterAmount);
-                const hasItemsPaid = !!(p.itemsPaid || p.raw?.itemsPaid);
-                return ps === 'paid' || pAmt > 0 || hasCollectedAt || hasSplitDetails || (hasItemsPaid && (p.itemsPaid?.consultation > 0 || p.itemsPaid?.medicine > 0 || p.itemsPaid?.dietPlan > 0));
-              };
-
-              const waitingCount = todayPatientsFiltered.filter(p => ['booked', 'waiting', 'confirmed', 'pending'].includes((p.status || '').toLowerCase()) && !isDashItemPaid(p)).length;
-              const completedUnpaidCount = todayPatientsFiltered.filter(p => (p.status === 'completed' || p.status === 'done' || p.doctorStatus === 'prescribed') && !isDashItemPaid(p)).length;
-              const completedPaidCount = todayPatientsFiltered.filter(p => p.status === 'done' || ((p.status === 'completed' || p.doctorStatus === 'prescribed') && isDashItemPaid(p)) || isDashItemPaid(p)).length;
-              const doneCount = completedPaidCount;
-
-              const doneItems = todayPatientsFiltered.filter(p => p.status === 'done' || ((p.status === 'completed' || p.doctorStatus === 'prescribed') && isDashItemPaid(p)) || isDashItemPaid(p));
-              const followUpOptedCount = doneItems.filter(p => p.followUpInterval && p.followUpInterval !== 'No Follow-up' && p.followUpInterval !== '').length;
-              const followUpNotOptedCount = doneItems.filter(p => !p.followUpInterval || p.followUpInterval === 'No Follow-up' || p.followUpInterval === '').length;
-
               return (
                 <View>
                   {userData?.role !== 'staff' && (
                     <View style={[styles.receptionStatsRow, { marginBottom: 20, flexWrap: 'wrap', gap: 6 }]}>
-                      <TouchableOpacity style={{ flex: 1, minWidth: '18%' }} onPress={() => handleStatClick('Total Bookings', p => true)}>
+                      <TouchableOpacity style={{ flex: 1, minWidth: '18%' }} onPress={() => handleStatClick('Total Bookings', p => branchFilteredTodayPatients.some(item => item.id === p.id))}>
                         <Surface style={[styles.receptionStatCard, { flex: undefined, width: '100%', borderLeftColor: COLORS.secondary, borderLeftWidth: 3 }]}>
-                          <Text style={styles.receptionStatVal}>{todayPatientsFiltered.length}</Text>
+                          <Text style={styles.receptionStatVal}>{branchFilteredTodayPatients.length}</Text>
                           <Text style={styles.receptionStatLabel} numberOfLines={1}>Total Bookings</Text>
                         </Surface>
                       </TouchableOpacity>
-                      <TouchableOpacity style={{ flex: 1, minWidth: '18%' }} onPress={() => handleStatClick('Waiting', p => ['booked', 'waiting', 'confirmed', 'pending'].includes((p.status || '').toLowerCase()) && !isDashItemPaid(p))}>
+                      <TouchableOpacity style={{ flex: 1, minWidth: '18%' }} onPress={() => handleStatClick('Waiting', p => upcomingWaitingList.some(item => item.id === p.id))}>
                         <Surface style={[styles.receptionStatCard, { flex: undefined, width: '100%', borderLeftColor: '#f59e0b', borderLeftWidth: 3 }]}>
-                          <Text style={[styles.receptionStatVal, { color: '#f59e0b' }]}>{waitingCount}</Text>
+                          <Text style={[styles.receptionStatVal, { color: '#f59e0b' }]}>{upcomingWaitingList.length}</Text>
                           <Text style={styles.receptionStatLabel} numberOfLines={1}>Waiting</Text>
                         </Surface>
                       </TouchableOpacity>
-
-                      <TouchableOpacity style={{ flex: 1, minWidth: '18%' }} onPress={() => handleStatClick('Payment Pending', p => (p.status === 'completed' || p.status === 'done' || p.doctorStatus === 'prescribed') && !isDashItemPaid(p))}>
+                      <TouchableOpacity style={{ flex: 1, minWidth: '18%' }} onPress={() => handleStatClick('Payment Pending', p => payPendingList.some(item => item.id === p.id))}>
                         <Surface style={[styles.receptionStatCard, { flex: undefined, width: '100%', borderLeftColor: '#ef4444', borderLeftWidth: 3 }]}>
-                          <Text style={[styles.receptionStatVal, { color: '#ef4444' }]}>{completedUnpaidCount}</Text>
+                          <Text style={[styles.receptionStatVal, { color: '#ef4444' }]}>{payPendingList.length}</Text>
                           <Text style={styles.receptionStatLabel} numberOfLines={1}>Pay Pending</Text>
                         </Surface>
                       </TouchableOpacity>
-                      <TouchableOpacity style={{ flex: 1, minWidth: '18%' }} onPress={() => handleStatClick('Completed', p => p.status === 'done' || ((p.status === 'completed' || p.doctorStatus === 'prescribed') && isDashItemPaid(p)) || isDashItemPaid(p))}>
+                      <TouchableOpacity style={{ flex: 1, minWidth: '18%' }} onPress={() => handleStatClick('Completed', p => completedTodayList.some(item => item.id === p.id))}>
                         <Surface style={[styles.receptionStatCard, { flex: undefined, width: '100%', borderLeftColor: '#10b981', borderLeftWidth: 3 }]}>
-                          <Text style={[styles.receptionStatVal, { color: '#10b981' }]}>{completedPaidCount}</Text>
+                          <Text style={[styles.receptionStatVal, { color: '#10b981' }]}>{completedTodayList.length}</Text>
                           <Text style={styles.receptionStatLabel} numberOfLines={1}>Completed</Text>
                         </Surface>
                       </TouchableOpacity>
                     </View>
                   )}
-
                   {userData?.role !== 'staff' && (
                     <View style={[styles.receptionStatsRow, { marginBottom: 12 }]}>
-                      <TouchableOpacity style={{ flex: 1 }} onPress={() => handleStatClick('Appointments Completed', p => p.status === 'done' || ((p.status === 'completed' || p.doctorStatus === 'prescribed') && isDashItemPaid(p)) || isDashItemPaid(p))}>
+                      <TouchableOpacity style={{ flex: 1 }} onPress={() => handleStatClick('Appointments Completed', p => completedTodayList.some(item => item.id === p.id))}>
                         <Surface style={[styles.receptionStatCardSmall, { flex: undefined, width: '100%', borderLeftColor: '#6366f1', borderLeftWidth: 3 }]}>
-                          <Text style={[styles.receptionStatValSmall, { color: '#6366f1' }]}>{doneCount}</Text>
+                          <Text style={[styles.receptionStatValSmall, { color: '#6366f1' }]}>{completedTodayList.length}</Text>
                           <Text style={styles.receptionStatLabelSmall} numberOfLines={2}>Appointments Completed</Text>
                         </Surface>
                       </TouchableOpacity>
-                      <TouchableOpacity style={{ flex: 1 }} onPress={() => handleStatClick('Follow-up Opted', p => isDashItemPaid(p) && p.followUpInterval && p.followUpInterval !== 'No Follow-up' && p.followUpInterval !== '')}>
+                      <TouchableOpacity style={{ flex: 1 }} onPress={() => handleStatClick('Follow-up Opted', p => completedTodayList.some(item => item.id === p.id) && p.followUpInterval && p.followUpInterval !== 'No Follow-up' && p.followUpInterval !== '')}>
                         <Surface style={[styles.receptionStatCardSmall, { flex: undefined, width: '100%', borderLeftColor: '#8b5cf6', borderLeftWidth: 3 }]}>
-                          <Text style={[styles.receptionStatValSmall, { color: '#8b5cf6' }]}>{followUpOptedCount}</Text>
+                          <Text style={[styles.receptionStatValSmall, { color: '#8b5cf6' }]}>{completedTodayList.filter(p => p.followUpInterval && p.followUpInterval !== 'No Follow-up' && p.followUpInterval !== '').length}</Text>
                           <Text style={styles.receptionStatLabelSmall} numberOfLines={2}>Follow-up Opted</Text>
                         </Surface>
                       </TouchableOpacity>
-                      <TouchableOpacity style={{ flex: 1 }} onPress={() => handleStatClick('Follow-up Not Opted', p => {
-                        const isDone = isDashItemPaid(p);
-                        const isOpted = p.followUpInterval && p.followUpInterval !== 'No Follow-up' && p.followUpInterval !== '';
-                        return isDone && !isOpted;
-                      })}>
+                      <TouchableOpacity style={{ flex: 1 }} onPress={() => handleStatClick('Follow-up Not Opted', p => completedTodayList.some(item => item.id === p.id) && (!p.followUpInterval || p.followUpInterval === 'No Follow-up' || p.followUpInterval === ''))}>
                         <Surface style={[styles.receptionStatCardSmall, { flex: undefined, width: '100%', borderLeftColor: '#ef4444', borderLeftWidth: 3 }]}>
-                          <Text style={[styles.receptionStatValSmall, { color: '#ef4444' }]}>{followUpNotOptedCount}</Text>
+                          <Text style={[styles.receptionStatValSmall, { color: '#ef4444' }]}>{completedTodayList.filter(p => !p.followUpInterval || p.followUpInterval === 'No Follow-up' || p.followUpInterval === '').length}</Text>
                           <Text style={styles.receptionStatLabelSmall} numberOfLines={2}>Follow-up Not Opted</Text>
                         </Surface>
                       </TouchableOpacity>
@@ -4936,11 +5040,10 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
                 </View>
               );
             })()}
-
             {/* 1. UPCOMING APPOINTMENTS SECTION */}
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitleMain}>Upcoming Appointments ({waitingCount})</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <Text style={styles.sectionTitleMain}>Upcoming Appointments ({upcomingWaitingList.length})</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                 <TouchableOpacity onPress={handleOpenRestoreModal}>
                   <Text style={[styles.viewAllText, { color: '#f97316' }]}>Restore (24h)</Text>
                 </TouchableOpacity>
@@ -4951,23 +5054,14 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
             </View>
             {patientsLoading ? (
               <ActivityIndicator color={COLORS.primary} style={{ marginVertical: 16 }} />
-            ) : upcomingToDisplay.length === 0 ? (
+            ) : upcomingWaitingList.length === 0 ? (
               <Surface style={styles.emptyQueueCardMini}>
                 <Text style={styles.emptyQueueTextMini}>No upcoming waiting appointments.</Text>
-                <Button
-                  mode="contained"
-                  buttonColor={COLORS.primary}
-                  onPress={() => setActiveTab && setActiveTab('RegisterPatient')}
-                  style={{ marginTop: 10, borderRadius: 8 }}
-                  labelStyle={{ fontSize: 11, paddingVertical: 0 }}
-                >
-                  Book Appointment
-                </Button>
               </Surface>
             ) : (
-              upcomingToDisplay
+              upcomingWaitingList
                 .map((patient, index) => {
-                  const absoluteIndex = upcomingToDisplay.findIndex(p => p.id === patient.id);
+                  const absoluteIndex = upcomingWaitingList.findIndex(p => p.id === patient.id);
                   const queueNumberText = absoluteIndex !== -1 ? `Q${absoluteIndex + 1}` : 'Q?';
                   return (
                     <Surface key={patient.id} style={styles.queueItemCard}>
@@ -5116,18 +5210,17 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
 
             {/* 1.5. IN CONSULTATION SECTION */}
             <View style={[styles.sectionHeader, { marginTop: 24 }]}>
-              <Text style={styles.sectionTitleMain}>Active Consultations ({inConsultationCount + completedUnpaidCount})</Text>
+              <Text style={styles.sectionTitleMain}>Active Consultations ({activeConsultationsList.length})</Text>
             </View>
 
             {patientsLoading ? (
               <ActivityIndicator color={COLORS.primary} style={{ marginVertical: 16 }} />
-            ) : todayPatientsFiltered.filter(p => (p.status === 'in-consultation' || (p.status === 'completed' && !isDashItemPaid(p))) && !isDashItemPaid(p)).length === 0 ? (
+            ) : activeConsultationsList.length === 0 ? (
               <Surface style={styles.emptyQueueCardMini}>
                 <Text style={styles.emptyQueueTextMini}>No patients currently in consultation or awaiting payment.</Text>
               </Surface>
             ) : (
-              todayPatientsFiltered
-                .filter(p => (p.status === 'in-consultation' || (p.status === 'completed' && !isDashItemPaid(p))) && !isDashItemPaid(p))
+              activeConsultationsList
                 .map(patient => (
                   <Surface key={patient.id} style={styles.queueItemCard}>
                     <TouchableOpacity
@@ -5202,19 +5295,38 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
                         </View>
                         <Text style={styles.queueSubtext}>With {formatFullDoctorName(patient.doctor)}</Text>
                       </View>
-                      {!isDashItemPaid(patient) ? (
-                        <TouchableOpacity
-                          style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#f59e0b', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, elevation: 1 }}
-                          onPress={() => handleOpenPaymentModal(patient)}
-                        >
-                          <Text style={{ fontSize: 11, fontWeight: '800', color: '#fff', marginLeft: 2 }}>Collect Fee</Text>
-                        </TouchableOpacity>
-                      ) : (
-                        <View style={[styles.completedBadge, { backgroundColor: '#e0f2fe' }]}>
-                          <Clock size={11} color="#0284c7" style={{ marginRight: 4 }} />
-                          <Text style={[styles.completedBadgeText, { color: '#0284c7' }]}>IN PROGRESS</Text>
-                        </View>
-                      )}
+                      {(() => {
+                        const sLower = (patient.status || '').toLowerCase();
+                        const docSLower = (patient.doctorStatus || '').toLowerCase();
+                        const isSentToReception = patient.sentToReception || patient.sent_to_reception || ['completed', 'done', 'prescribed', 'consulted', 'completed_today'].includes(sLower) || docSLower === 'prescribed';
+
+                        if (!isDashItemPaid(patient)) {
+                          if (isSentToReception) {
+                            return (
+                              <TouchableOpacity
+                                style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#f59e0b', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, elevation: 1 }}
+                                onPress={() => handleOpenPaymentModal(patient)}
+                              >
+                                <Text style={{ fontSize: 11, fontWeight: '800', color: '#fff', marginLeft: 2 }}>Collect Fee</Text>
+                              </TouchableOpacity>
+                            );
+                          } else {
+                            return (
+                              <View style={[styles.completedBadge, { backgroundColor: '#fef3c7', borderColor: '#fde68a', borderWidth: 1 }]}>
+                                <Clock size={11} color="#d97706" style={{ marginRight: 4 }} />
+                                <Text style={[styles.completedBadgeText, { color: '#d97706' }]}>IN CONSULTATION</Text>
+                              </View>
+                            );
+                          }
+                        } else {
+                          return (
+                            <View style={[styles.completedBadge, { backgroundColor: '#e0f2fe' }]}>
+                              <Clock size={11} color="#0284c7" style={{ marginRight: 4 }} />
+                              <Text style={[styles.completedBadgeText, { color: '#0284c7' }]}>IN PROGRESS</Text>
+                            </View>
+                          );
+                        }
+                      })()}
                       <View style={styles.queueArrow}>
                         <ChevronRight size={18} color={COLORS.muted} />
                       </View>
@@ -5262,18 +5374,17 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
 
             {/* 2. COMPLETED TODAY SECTION */}
             <View style={[styles.sectionHeader, { marginTop: 24 }]}>
-              <Text style={styles.sectionTitleMain}>Completed Appointments Today ({completedPaidCount})</Text>
+              <Text style={styles.sectionTitleMain}>Completed Appointments Today ({completedTodayList.length})</Text>
             </View>
 
             {patientsLoading ? (
               <ActivityIndicator color={COLORS.primary} style={{ marginVertical: 16 }} />
-            ) : todayPatientsFiltered.filter(p => p.status === 'done' || ((p.status === 'completed' || p.doctorStatus === 'prescribed') && isDashItemPaid(p)) || isDashItemPaid(p)).length === 0 ? (
+            ) : completedTodayList.length === 0 ? (
               <Surface style={styles.emptyQueueCardMini}>
                 <Text style={styles.emptyQueueTextMini}>No completed appointments today yet.</Text>
               </Surface>
             ) : (
-              todayPatientsFiltered
-                .filter(p => p.status === 'done' || (p.status === 'completed' && p.paymentStatus === 'paid'))
+              completedTodayList
                 .map(patient => (
                   <Surface key={patient.id} style={styles.queueItemCard}>
                     <TouchableOpacity
@@ -5290,6 +5401,11 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
                       <View style={{ flex: 1, marginLeft: 12 }}>
                         <Text style={[styles.queueName, { textDecorationLine: 'line-through', color: COLORS.muted }]}>{patient.fullName}</Text>
                         <Text style={styles.queueSubtext}>Completed with {formatFullDoctorName(patient.doctor)}</Text>
+                        {getPatientCollectedFee(patient) > 0 && (
+                          <Text style={{ fontSize: 11, fontWeight: '700', color: '#10b981', marginTop: 2 }}>
+                            Amount Paid: ₹{getPatientCollectedFee(patient).toLocaleString('en-IN')}
+                          </Text>
+                        )}
                       </View>
                       <View style={styles.completedBadge}>
                         <CheckCircle2 size={11} color="#10b981" style={{ marginRight: 4 }} />
@@ -5474,7 +5590,7 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
                 >
                   <Text style={{ fontSize: 12, fontWeight: '600', color: dashSelectedBranch === 'All Branches' ? '#fff' : COLORS.text }}>All Branches</Text>
                 </TouchableOpacity>
-                {Array.from(new Set(todayPatientsFiltered.map(p => normalizeBranchName(p.branchName || p.branchId)).filter(Boolean))).map(branch => (
+                {Array.from(new Set(['KPHB', 'Chandanagar', 'Dilshuknagar', 'Nallagandla', ...todayPatientsFiltered.map(p => normalizeBranchName(p.branchName || p.branchId)).filter(Boolean)])).map(branch => (
                   <TouchableOpacity
                     key={branch}
                     onPress={() => setDashSelectedBranch(branch)}
@@ -5532,8 +5648,10 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
               const docNorm = normalizeDoctorName(userData?.name || '');
               const patDocNorm = normalizeDoctorName(p.doctor);
               const isMine = patDocNorm && docNorm && (patDocNorm.includes(docNorm) || docNorm.includes(patDocNorm));
-              const isCompleted = p.status === 'completed' || p.doctorStatus === 'prescribed' || p.status === 'done';
-              const isOnlineUnpaid = p.status === 'booked' && p.paymentStatus !== 'paid';
+              const s = String(p.status || '').toLowerCase();
+              const docS = String(p.doctorStatus || '').toLowerCase();
+              const isCompleted = ['completed', 'done', 'prescribed', 'consulted', 'completed_today'].includes(s) || docS === 'prescribed';
+              const isOnlineUnpaid = s === 'booked' && p.paymentStatus !== 'paid';
               return isMine && !isCompleted && !isOnlineUnpaid;
             }).length === 0 ? (
               <Surface style={styles.emptyQueueCardMini}>
@@ -5547,8 +5665,10 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
                   const docNorm = normalizeDoctorName(userData?.name || '');
                   const patDocNorm = normalizeDoctorName(p.doctor);
                   const isMine = patDocNorm && docNorm && (patDocNorm.includes(docNorm) || docNorm.includes(patDocNorm));
-                  const isCompleted = p.status === 'completed' || p.doctorStatus === 'prescribed' || p.status === 'done';
-                  const isOnlineUnpaid = p.status === 'booked' && p.paymentStatus !== 'paid';
+                  const s = String(p.status || '').toLowerCase();
+                  const docS = String(p.doctorStatus || '').toLowerCase();
+                  const isCompleted = ['completed', 'done', 'prescribed', 'consulted', 'completed_today'].includes(s) || docS === 'prescribed';
+                  const isOnlineUnpaid = s === 'booked' && p.paymentStatus !== 'paid';
                   return isMine && !isCompleted && !isOnlineUnpaid;
                 })
                 .sort((a, b) => {
@@ -6083,7 +6203,7 @@ For queries, contact support at 9030 176 176 or visit www.spiritualhomeo.com`;
               </View>
             )}
 
-            {userData?.role === 'hr' && (
+            {['hr', 'admin', 'superadmin', 'manager', 'management'].includes((userData?.role || '').toLowerCase()) && (
               <View style={{ marginTop: 24 }}>
                 <Text style={[styles.sectionTitleMain, { marginBottom: 14 }]}>Branch Performance (Today)</Text>
                 <View style={{ flexDirection: 'column', gap: 8 }}>
@@ -6872,7 +6992,9 @@ const styles = StyleSheet.create({
     fontWeight: '700'
   }
 });
-export default Dashboard;
+export default React.memo(Dashboard, () => true);
+
+
 
 
 

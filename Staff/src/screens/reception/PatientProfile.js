@@ -53,6 +53,29 @@ const statusConfig = {
   done: { color: '#10b981', bg: '#ecfdf5', label: 'Completed' },
 };
 
+const formatFollowUpDateDisplay = (dateRaw) => {
+  if (!dateRaw) return '';
+  if (typeof dateRaw === 'string') {
+    const cleanStr = dateRaw.trim().split('T')[0];
+    const parts = cleanStr.split(/[-/]/);
+    if (parts.length === 3) {
+      if (parts[0].length === 4) {
+        // YYYY-MM-DD -> DD-MM-YYYY
+        return `${parts[2].padStart(2, '0')}-${parts[1].padStart(2, '0')}-${parts[0]}`;
+      } else if (parts[2].length === 4) {
+        // DD-MM-YYYY or DD/MM/YYYY -> DD-MM-YYYY
+        return `${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}-${parts[2]}`;
+      }
+    }
+  }
+  const d = new Date(dateRaw);
+  if (isNaN(d.getTime())) return String(dateRaw);
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  return `${dd}-${mm}-${yyyy}`;
+};
+
 const getStatus = (s) => statusConfig[s] || { color: '#64748b', bg: '#f1f5f9', label: s || 'Unknown' };
 
 // ── Info Row helper ───────────────────────────────────────────────────────────
@@ -87,11 +110,11 @@ const getCanonicalBranchName = (name) => {
 
 const normalizeBranch = (branch) => {
   if (!branch) return '';
-  const str = branch.toLowerCase().trim();
-  if (str.includes('kphb')) return 'kphb';
+  const str = String(branch).toLowerCase().trim();
+  if (str.includes('kphb') || str.includes('kphp')) return 'kphb';
   if (str.includes('chnr') || str.includes('chandanagar') || str.includes('chandnagar')) return 'chandanagar';
-  if (str.includes('dsnr') || str.includes('dilsukhnagar') || str.includes('dilshuknagar')) return 'dilshuknagar';
-  if (str.includes('nallagandla')) return 'nallagandla';
+  if (str.includes('dsnr') || str.includes('dilsukhnagar') || str.includes('dilshuknagar')) return 'dilsukhnagar';
+  if (str.includes('nallagandla') || str.includes('ngl') || str.includes('nlg')) return 'nallagandla';
   return str.replace(/\s*branch\s*/i, '').trim();
 };
 
@@ -2246,7 +2269,7 @@ const PatientProfile = ({ route, navigation }) => {
             <InfoRow icon={Clipboard} label="Complaint" value={patient?.complaint} />
             <InfoRow icon={Stethoscope} label="Source" value={patient?.source} />
             {patient?.followUpDate ? (
-              <InfoRow icon={Calendar} label="Follow-up End Date" value={`${patient.followUpDate} ${patient.followUpInterval ? `(${patient.followUpInterval})` : ''}`} />
+              <InfoRow icon={Calendar} label="Follow-up End Date" value={`${formatFollowUpDateDisplay(patient.followUpDate)} ${patient.followUpInterval ? `(${patient.followUpInterval})` : ''}`} />
             ) : null}
           </View>
         </Surface>
@@ -2739,7 +2762,7 @@ const PatientProfile = ({ route, navigation }) => {
                       {visit.followUpDate ? (
                         <Text style={s.visitDetail}>
                           <Text style={s.visitDetailLabel}>Follow-up: </Text>
-                          {visit.followUpDate}
+                          {formatFollowUpDateDisplay(visit.followUpDate)}
                         </Text>
                       ) : null}
 

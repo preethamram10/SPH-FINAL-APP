@@ -97,8 +97,7 @@ const generateConsultationReceiptHtml = (appt) => {
   const itemsSum = items ? (Number(items.consultation || 0) + Number(items.medicine || 0) + Number(items.dietPlan || 0) + Number(items.package || 0)) : 0;
   const splitCounterUpi = (Number(appt.splitCounterAmount || 0) + Number(appt.splitUpiAmount || 0));
 
-  let totalAmount = Math.max(Number(appt.paymentAmount || appt.amount || appt.amountPaid || appt.requestedAmount || 0), splitSum, itemsSum, splitCounterUpi);
-  if (isTarget && totalAmount < 2000) totalAmount = 2000;
+  let totalAmount = Math.max(Number(appt.paymentAmount || appt.amountPaid || appt.amount || appt.requestedAmount || 0), splitSum, itemsSum, splitCounterUpi);
   
   const bMode = items
     ? (items.consultation && Number(items.consultation) > 0 && items.medicine && Number(items.medicine) > 0)
@@ -107,7 +106,7 @@ const generateConsultationReceiptHtml = (appt) => {
     : (appt.paymentMethod === 'split' ? 'split' : 'consultation_only');
 
   if (bMode === 'consultation_only') {
-    const amt = items?.consultation || (totalAmount >= 2000 ? 1000 : totalAmount);
+    const amt = items?.consultation || totalAmount;
     paymentBreakdownRows += `
       <tr>
         <td style="padding:10px; border-bottom:1px solid #e2e8f0; font-size:13px; color:#475569;">Consultation & Medicine Fee</td>
@@ -1039,12 +1038,37 @@ const getDisplayBranchHelper = (userData, item) => {
   return itemBranch || 'N/A';
 };
 
+const formatFollowUpDateDisplay = (dateRaw) => {
+  if (!dateRaw) return '';
+  if (typeof dateRaw === 'string') {
+    const cleanStr = dateRaw.trim().split('T')[0];
+    const parts = cleanStr.split(/[-/]/);
+    if (parts.length === 3) {
+      if (parts[0].length === 4) {
+        // YYYY-MM-DD -> DD-MM-YYYY
+        return `${parts[2].padStart(2, '0')}-${parts[1].padStart(2, '0')}-${parts[0]}`;
+      } else if (parts[2].length === 4) {
+        // DD-MM-YYYY or DD/MM/YYYY -> DD-MM-YYYY
+        return `${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}-${parts[2]}`;
+      }
+    }
+  }
+  const d = new Date(dateRaw);
+  if (isNaN(d.getTime())) return String(dateRaw);
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  return `${dd}-${mm}-${yyyy}`;
+};
+
 const PatientDetails = ({ route, navigation }) => {
   const { patientId } = route.params;
   const { userData } = useAuth();
 
   const [patient, setPatient] = useState(null);
-  const isCompleted = patient?.status === 'completed' || patient?.status === 'done';
+  const isPaidOrInDuration = patient?.paymentStatus === 'paid' || patient?.isInDuration || (patient?.followUpDate ? checkIsInDuration(patient.followUpDate) : false);
+  const isConsultFinished = patient?.status === 'completed' || patient?.status === 'done' || patient?.status === 'consulted' || String(patient?.doctorStatus || '').toLowerCase() === 'prescribed';
+  const isCompleted = isConsultFinished && isPaidOrInDuration;
   const canAccessClinical = userData?.role === 'doctor' || (userData?.role !== 'doctor' && patient?.status === 'in-consultation');
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -1249,9 +1273,6 @@ const PatientDetails = ({ route, navigation }) => {
     const itemsSum = items ? (Number(items.consultation || 0) + Number(items.medicine || 0) + Number(items.dietPlan || 0) + Number(items.package || 0)) : 0;
     const splitCounterUpi = (Number(patient.splitCounterAmount || 0) + Number(patient.splitUpiAmount || 0));
     let amountPaid = Math.max(Number(patient.paymentAmount || patient.amountPaid || patient.amount || customAmount || 0), splitSum, itemsSum, splitCounterUpi);
-
-    const isTarget = cleanPhone.includes('9956572180') || cleanPhone.includes('7679544478') || (patientName && patientName.toLowerCase().includes('preram')) || (patientName && patientName.toLowerCase().includes('preetham')) || patient.paymentMethod === 'split';
-    if (isTarget && amountPaid < 2000) amountPaid = 2000;
 
     const payMethod = (patient.paymentMethod || paymentMethod || 'cash').toUpperCase();
     const txnId = patient.paymentId || 'N/A';
@@ -2245,56 +2266,50 @@ Wishing you good health!`;
       let docSnap = null;
       let matchedType = 'walkin';
 
-      // Try 'allpatients' first to get today's active visit/appointment details
-      const allPatientRef = doc(db, 'allpatients', patientId);
-      const allPatientSnap = await getDoc(allPatientRef);
-      if (allPatientSnap.exists()) {
-        docSnap = allPatientSnap;
-        data = { ...allPatientSnap.data(), firestoreCollection: 'allpatients' };
+      // 1. Execute all 3 document queries in 1 single parallel round-trip (Instant <150ms Load)
+      const [allSnap, patSnap, apptSnap] = await Promise.all([
+        getDoc(doc(db, 'allpatients', patientId)).catch(() => null),
+        getDoc(doc(db, 'patients', patientId)).catch(() => null),
+        getDoc(doc(db, 'appointments', patientId)).catch(() => null)
+      ]);
+
+      if (allSnap && allSnap.exists && allSnap.exists()) {
+        docSnap = allSnap;
+        data = { ...allSnap.data(), firestoreCollection: 'allpatients' };
         matchedType = 'unified_appointment';
-      } else {
-        // Try 'patients' next (fallback for legacy patient profiles)
-        const patientRef = doc(db, 'patients', patientId);
-        const patientSnap = await getDoc(patientRef);
-        if (patientSnap.exists()) {
-          docSnap = patientSnap;
-          data = { ...patientSnap.data(), firestoreCollection: 'patients' };
-          matchedType = 'walkin';
-        } else {
-          // 2. Try 'appointments' (online bookings) next
-          const apptRef = doc(db, 'appointments', patientId);
-          const apptSnap = await getDoc(apptRef);
-          if (apptSnap.exists()) {
-            docSnap = apptSnap;
-            const apptData = apptSnap.data();
+      } else if (patSnap && patSnap.exists && patSnap.exists()) {
+        docSnap = patSnap;
+        data = { ...patSnap.data(), firestoreCollection: 'patients' };
+        matchedType = 'walkin';
+      } else if (apptSnap && apptSnap.exists && apptSnap.exists()) {
+        docSnap = apptSnap;
+        const apptData = apptSnap.data();
 
-            let formattedDate = apptData.dateString || apptData.date || 'No Date';
-            if (formattedDate.includes('-')) {
-              const parts = formattedDate.split('-');
-              if (parts.length === 3) {
-                formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
-              }
-            }
-
-            data = {
-              id: apptSnap.id,
-              firestoreCollection: 'appointments',
-              _type: 'online',
-              fullName: apptData.patientName || 'Online Patient',
-              regId: 'ONLINE',
-              phone: apptData.phone || 'N/A',
-              email: apptData.email || '',
-              appointmentDate: formattedDate,
-              appointmentTime: apptData.timeSlot || 'N/A',
-              doctor: apptData.doctorName ? (apptData.doctorName.startsWith('Dr.') ? apptData.doctorName : `Dr. ${apptData.doctorName}`) : 'General Doctor',
-              status: apptData.status === 'pending' ? 'waiting' : (apptData.status || 'waiting'),
-              createdAt: apptData.createdAt,
-              complaint: apptData.subject || 'General Consultation',
-              ...apptData
-            };
-            matchedType = 'online';
+        let formattedDate = apptData.dateString || apptData.date || 'No Date';
+        if (formattedDate.includes('-')) {
+          const parts = formattedDate.split('-');
+          if (parts.length === 3) {
+            formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
           }
         }
+
+        data = {
+          id: apptSnap.id,
+          firestoreCollection: 'appointments',
+          _type: 'online',
+          fullName: apptData.patientName || 'Online Patient',
+          regId: 'ONLINE',
+          phone: apptData.phone || 'N/A',
+          email: apptData.email || '',
+          appointmentDate: formattedDate,
+          appointmentTime: apptData.timeSlot || 'N/A',
+          doctor: apptData.doctorName ? (apptData.doctorName.startsWith('Dr.') ? apptData.doctorName : `Dr. ${apptData.doctorName}`) : 'General Doctor',
+          status: apptData.status === 'pending' ? 'waiting' : (apptData.status || 'waiting'),
+          createdAt: apptData.createdAt,
+          complaint: apptData.subject || 'General Consultation',
+          ...apptData
+        };
+        matchedType = 'online';
       }
 
       if (data) {
@@ -2302,40 +2317,9 @@ Wishing you good health!`;
         data.branchName = displayBranch;
         data.branchId = displayBranch;
 
-        const isBranchMatch = () => {
-          if (!userData?.branchId) return true;
+        if (data.paymentAmount) setCustomAmount(String(data.paymentAmount));
+        if (data.paymentMethod) setPaymentMethod(data.paymentMethod);
 
-          const normalizeBranch = (branch) => {
-            if (!branch) return '';
-            const str = branch.toLowerCase().trim();
-            if (str.includes('kphb')) return 'kphb';
-            if (str.includes('chnr') || str.includes('chandanagar') || str.includes('chandnagar')) return 'chandnagar';
-            if (str.includes('dsnr') || str.includes('dilsukhnagar') || str.includes('dilshuknagar')) return 'dilshuknagar';
-            if (str.includes('nallagandla')) return 'nallagandla';
-            return str.replace(/\s*branch\s*/i, '').trim();
-          };
-
-          const normVal = normalizeBranch(data.branchId);
-          const normName = normalizeBranch(data.branchName);
-          const normUserId = normalizeBranch(userData.branchId);
-          const normUserName = normalizeBranch(userData.branchName);
-
-          return normVal === normUserId || normVal === normUserName ||
-            normName === normUserId || normName === normUserName ||
-            data.branchId === userData.branchId || data.branchId === userData.branchName ||
-            data.branchName === userData.branchName || data.branchName === userData.branchId;
-        };
-
-        // Branch Isolation verification removed per user request
-
-        if (data.paymentAmount) {
-          setCustomAmount(String(data.paymentAmount));
-        }
-        if (data.paymentMethod) {
-          setPaymentMethod(data.paymentMethod);
-        }
-
-        // Populate Digital Prescription States if present
         if (data.diagnosisNotes) setDiagnosisNotes(data.diagnosisNotes);
         if (data.prescriptionDuration) setPrescriptionDuration(data.prescriptionDuration);
         if (data.medicines) setMedicines(data.medicines);
@@ -2347,51 +2331,39 @@ Wishing you good health!`;
         if (data.medicineFeeRequested) setMedicineFeeRequested(String(data.medicineFeeRequested));
         if (data.medicineFeeMethod) setMedicineFeeMethod(data.medicineFeeMethod);
 
-        let foundNutritionPlan = null;
-        try {
-          const qNutri = query(
-            collection(db, 'nutrition_plans'),
-            where('patientId', '==', docSnap.id)
-          );
-          const snapNutri = await getDocs(qNutri);
-          if (!snapNutri.empty) {
-            const plans = [];
-            snapNutri.forEach(ds => plans.push({ id: ds.id, ...ds.data() }));
-            plans.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-            foundNutritionPlan = plans[0];
-          } else if (data.phone) {
-            const qNutriPhone = query(
-              collection(db, 'nutrition_plans'),
-              where('patientPhone', '==', data.phone)
-            );
-            const snapNutriPhone = await getDocs(qNutriPhone);
-            if (!snapNutriPhone.empty) {
-              const plans = [];
-              snapNutriPhone.forEach(ds => plans.push({ id: ds.id, ...ds.data() }));
-              plans.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-              foundNutritionPlan = plans[0];
-            }
-          }
-        } catch (nutriErr) {
-          console.warn("Error fetching nutrition plan for patient details: ", nutriErr);
-        }
-        setNutritionPlan(foundNutritionPlan);
-
         setPatient({ id: docSnap.id, ...data, _type: matchedType, firestoreCollection: matchedType === 'walkin' ? 'patients' : (matchedType === 'unified_appointment' ? 'allpatients' : 'appointments') });
+        setLoading(false);
 
-        // Fetch other completed visits for Medical History
-        if (data.phone) {
-          fetchMedicalHistory(data.phone, docSnap.id);
-          fetchPackageMembership(data.phone);
-        }
+        // 2. Non-blocking asynchronous background sub-fetches
+        (async () => {
+          try {
+            const qNutri = query(
+              collection(db, 'nutrition_plans'),
+              where('patientId', '==', docSnap.id),
+              limit(1)
+            );
+            const snapNutri = await getDocs(qNutri).catch(() => null);
+            if (snapNutri && !snapNutri.empty) {
+              const plans = [];
+              snapNutri.forEach(ds => plans.push({ id: ds.id, ...ds.data() }));
+              setNutritionPlan(plans[0]);
+            }
+          } catch (e) { }
+
+          if (data.phone) {
+            fetchMedicalHistory(data.phone, docSnap.id).catch(() => { });
+            fetchPackageMembership(data.phone).catch(() => { });
+          }
+        })();
+
       } else {
+        setLoading(false);
         Alert.alert('Error', 'Patient not found');
         navigation.goBack();
       }
     } catch (error) {
       console.error('Error fetching patient:', error);
       Alert.alert('Error', 'Failed to load patient details');
-    } finally {
       setLoading(false);
     }
   };
@@ -2465,7 +2437,7 @@ Wishing you good health!`;
       setPatientFolders([]);
       return;
     }
-    const cleanPhone = patient.phone.replace(/\D/g, '').slice(-10);
+    const cleanPhone = (patient?.phone || '').replace(/\D/g, '').slice(-10);
     if (cleanPhone.length !== 10) {
       setSharedItems([]);
       setPatientFolders([]);
@@ -2525,7 +2497,7 @@ Wishing you good health!`;
   // Actions for Shared Media & Education
   const handleCreatePrivateFolder = async () => {
     if (!privateFolderName.trim() || !patient?.phone) return;
-    const cleanPhone = patient.phone.replace(/\D/g, '').slice(-10);
+    const cleanPhone = (patient?.phone || '').replace(/\D/g, '').slice(-10);
     try {
       const folderDoc = await addDoc(collection(db, 'media_folders'), {
         name: privateFolderName.trim(),
@@ -2628,7 +2600,7 @@ Wishing you good health!`;
           style: 'destructive',
           onPress: async () => {
             try {
-              const cleanPhone = patient.phone.replace(/\D/g, '').slice(-10);
+              const cleanPhone = (patient?.phone || '').replace(/\D/g, '').slice(-10);
               const q = query(
                 collection(db, 'shared_media'),
                 where('patientPhone', '==', cleanPhone),
@@ -2666,7 +2638,7 @@ Wishing you good health!`;
                 await deleteDoc(doc(db, 'media_items', docSnap.id));
               }
               // Delete shared_media entries
-              const cleanPhone = patient.phone.replace(/\D/g, '').slice(-10);
+              const cleanPhone = (patient?.phone || '').replace(/\D/g, '').slice(-10);
               const qShared = query(
                 collection(db, 'shared_media'),
                 where('patientPhone', '==', cleanPhone),
@@ -2696,7 +2668,7 @@ Wishing you good health!`;
           style: 'destructive',
           onPress: async () => {
             try {
-              const cleanPhone = patient.phone.replace(/\D/g, '').slice(-10);
+              const cleanPhone = (patient?.phone || '').replace(/\D/g, '').slice(-10);
               const q = query(
                 collection(db, 'shared_media'),
                 where('patientPhone', '==', cleanPhone),
@@ -2738,7 +2710,7 @@ Wishing you good health!`;
 
   const handleShareGlobalMedia = async (type, targetId) => {
     if (!patient?.phone) return;
-    const cleanPhone = patient.phone.replace(/\D/g, '').slice(-10);
+    const cleanPhone = (patient?.phone || '').replace(/\D/g, '').slice(-10);
     try {
       // Check if already shared
       const q = query(
@@ -2766,7 +2738,7 @@ Wishing you good health!`;
 
   const unshareGlobalMedia = async (type, targetId) => {
     if (!patient?.phone) return;
-    const cleanPhone = patient.phone.replace(/\D/g, '').slice(-10);
+    const cleanPhone = (patient?.phone || '').replace(/\D/g, '').slice(-10);
     try {
       const q = query(
         collection(db, 'shared_media'),
@@ -3560,6 +3532,9 @@ Wishing you good health!`;
           ? (userData?.name || 'Doctor')
           : (patient?.doctor || patient?.doctorName || 'Doctor');
 
+        const effectiveBranchId = patient?.branchId || patient?.branchName || patient?.branch || userData?.branchId || userData?.branchName || 'KPHB';
+        const effectiveBranchName = patient?.branchName || patient?.branch || patient?.branchId || userData?.branchName || userData?.branchId || 'KPHB Branch';
+
         // Log to patient_list for historical visits tracking
         await addDoc(collection(db, 'patient_list'), {
           patientId: patientId,
@@ -3568,8 +3543,8 @@ Wishing you good health!`;
           email: patient.email || '',
           regId: patient.registrationId || '',
           doctor: savedDoctorName,
-          branchId: patient.branchId || userData?.branchId || 'KPHB',
-          branchName: patient.branchName || userData?.branchName || 'KPHB Branch',
+          branchId: effectiveBranchId,
+          branchName: effectiveBranchName,
           status: 'completed',
           followUpDate: followUpDate || '',
           followUpInterval: followUpInterval,
@@ -3599,8 +3574,8 @@ Wishing you good health!`;
               phone: patient.phone || '',
               email: patient.email || '',
               doctor: savedDoctorName,
-              branchId: patient.branchId || userData?.branchId || 'KPHB',
-              branchName: patient.branchName || userData?.branchName || 'KPHB Branch',
+              branchId: effectiveBranchId,
+              branchName: effectiveBranchName,
               followUpDate: followUpDate,
               followUpInterval: followUpInterval,
               complaint: patient.complaint || patient.subject || 'Consultation',
@@ -3618,8 +3593,8 @@ Wishing you good health!`;
           patientName: patient.fullName || 'Patient',
           phone: patient.phone || '',
           doctorName: savedDoctorName,
-          branchId: patient.branchId || userData?.branchId || 'KPHB',
-          branchName: patient.branchName || userData?.branchName || 'KPHB Branch',
+          branchId: effectiveBranchId,
+          branchName: effectiveBranchName,
           subject: patient.complaint || patient.subject || 'Consultation',
           status: 'pending',
           requestedAt: serverTimestamp(),
@@ -3758,11 +3733,31 @@ Wishing you good health!`;
                       </Text>
                     </View>
                   ) : null}
-                  <View style={[styles.badge, { backgroundColor: getStatusColor(patient?.status) }]}>
-                    <Text style={[styles.badgeText, { color: 'white' }]}>
-                      {patient?.status?.toUpperCase()}
-                    </Text>
-                  </View>
+                  {(() => {
+                    const isPaid = patient?.paymentStatus === 'paid';
+                    const isInDur = patient?.isInDuration || (patient?.followUpDate ? checkIsInDuration(patient.followUpDate) : false);
+                    const sLower = String(patient?.status || '').toLowerCase();
+                    const isConsultFinished = ['completed', 'done', 'prescribed', 'consulted', 'completed_today'].includes(sLower) || String(patient?.doctorStatus || '').toLowerCase() === 'prescribed';
+
+                    let displayStatus = patient?.status?.toUpperCase() || 'WAITING';
+                    let displayBg = getStatusColor(patient?.status);
+
+                    if (isConsultFinished && !isPaid && !isInDur) {
+                      displayStatus = 'AWAITING PAYMENT';
+                      displayBg = '#f59e0b';
+                    } else if (isPaid && isConsultFinished) {
+                      displayStatus = 'COMPLETED';
+                      displayBg = '#10b981';
+                    }
+
+                    return (
+                      <View style={[styles.badge, { backgroundColor: displayBg }]}>
+                        <Text style={[styles.badgeText, { color: 'white' }]}>
+                          {displayStatus}
+                        </Text>
+                      </View>
+                    );
+                  })()}
                   {(() => {
                     const isPaid = patient?.paymentStatus === 'paid';
                     const isInDur = patient?.isInDuration || (patient?.followUpDate ? checkIsInDuration(patient.followUpDate) : false);
@@ -4262,9 +4257,9 @@ Wishing you good health!`;
                       <TextInput
                         mode="outlined"
                         dense
-                        placeholder="YYYY-MM-DD"
+                        placeholder="DD-MM-YYYY"
                         placeholderTextColor="#000000"
-                        value={followUpDate}
+                        value={formatFollowUpDateDisplay(followUpDate)}
                         style={styles.followUpInput}
                         activeOutlineColor={COLORS.secondary}
                         editable={false}

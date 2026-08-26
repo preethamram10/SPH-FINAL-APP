@@ -9,7 +9,7 @@ const HOSPITAL_ID = 'sph-main';
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(auth.currentUser || null);
   const [userData, setUserData] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   // Ultra-fast instant cache hydration on app boot
   useEffect(() => {
@@ -20,9 +20,9 @@ export const AuthProvider = ({ children }) => {
           if (parsed && parsed.id) {
             setUserData(parsed);
           }
-        } catch (e) {}
+        } catch (e) { }
       }
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
 
   useEffect(() => {
@@ -114,29 +114,29 @@ export const AuthProvider = ({ children }) => {
 
           const targetCleanPhone = phoneToMatch ? phoneToMatch.replace(/\D/g, '').slice(-10) : '';
 
-          // Priority 1: Specifically look for a Receptionist/Branch staff profile matching target phone
-          bestMatch = uniqueCandidates.find(d => {
+          // Filter candidates matching phone number
+          const phoneMatchedCandidates = uniqueCandidates.filter(d => {
             const docCleanPhone = String(d.phone || '').replace(/\D/g, '').slice(-10);
             const isActive = d.status === 'active' || !d.status;
             const phoneMatches = !targetCleanPhone || (docCleanPhone.length === 10 && docCleanPhone === targetCleanPhone);
             const r = String(d.role || '').toLowerCase().trim();
-            const isReceptionist = r.includes('reception') || r.includes('branch');
-            return isActive && phoneMatches && isReceptionist;
+            return isActive && phoneMatches && r !== 'patient' && r !== 'user';
           });
 
-          // Priority 2: Look for any valid non-patient staff document
+          // Priority 1: Match active staff document where role is explicitly 'staff'
+          bestMatch = phoneMatchedCandidates.find(d => String(d.role || '').toLowerCase().trim() === 'staff');
+
+          // Priority 2: Match by exact UID
           if (!bestMatch) {
-            bestMatch = uniqueCandidates.find(d => {
-              const docCleanPhone = String(d.phone || '').replace(/\D/g, '').slice(-10);
-              const isActive = d.status === 'active' || !d.status;
-              const phoneMatches = !targetCleanPhone || (docCleanPhone.length === 10 && docCleanPhone === targetCleanPhone);
-              const r = String(d.role || '').toLowerCase().trim();
-              const isStaffRole = r !== 'patient' && r !== 'user' && r !== '';
-              return isActive && phoneMatches && isStaffRole;
-            });
+            bestMatch = phoneMatchedCandidates.find(d => d.uid === currentUser.uid);
           }
 
-          // Priority 3: Fallback to cached document ID if present
+          // Priority 3: Fallback to any active phone candidate
+          if (!bestMatch && phoneMatchedCandidates.length > 0) {
+            bestMatch = phoneMatchedCandidates[0];
+          }
+
+          // Priority 4: Fallback to cached document ID if present
           if (!bestMatch && cachedDocId) {
             try {
               const docSnap = await getDoc(doc(db, 'users', cachedDocId));
@@ -147,14 +147,21 @@ export const AuthProvider = ({ children }) => {
                   bestMatch = { id: docSnap.id, ...data };
                 }
               }
-            } catch (e) {}
+            } catch (e) { }
           }
 
           if (bestMatch) {
             const cleanPhoneStr = String(bestMatch.phone || '').replace(/\D/g, '').slice(-10);
 
-            // Explicitly assign and self-heal 9132176176 as official Nallagandla Receptionist
-            if (cleanPhoneStr === '9132176176' || currentUser.phoneNumber?.includes('9132176176')) {
+            // Explicitly assign and self-heal 7995532759 as Regular Staff (Aishwarya . M)
+            if (cleanPhoneStr === '7995532759' || currentUser.phoneNumber?.includes('7995532759')) {
+              bestMatch.role = 'staff';
+              try {
+                await updateDoc(doc(db, 'users', bestMatch.id), { role: 'staff' });
+              } catch (err) {
+                console.warn("Could not update staff doc in Firestore:", err);
+              }
+            } else if (cleanPhoneStr === '9132176176' || currentUser.phoneNumber?.includes('9132176176')) {
               bestMatch.role = 'receptionist';
               bestMatch.branchName = 'Nallagandla';
               bestMatch.branchId = 'Nallagandla';
@@ -169,10 +176,12 @@ export const AuthProvider = ({ children }) => {
               }
             } else {
               const rawRole = String(bestMatch.role || '').toLowerCase().trim();
-              if (rawRole === 'staff' || rawRole === 'reception' || rawRole === 'branch' || rawRole === '') {
+              if (rawRole === 'reception' || rawRole === 'branch' || rawRole === 'receptionist_admin') {
                 bestMatch.role = 'receptionist';
+              } else if (rawRole === 'staff') {
+                bestMatch.role = 'staff';
               } else {
-                bestMatch.role = rawRole;
+                bestMatch.role = rawRole || 'staff';
               }
             }
 

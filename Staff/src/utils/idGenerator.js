@@ -7,7 +7,7 @@ export const getStandardBranchName = (name) => {
   if (normalized.includes('kphb') || normalized.includes('kphp')) return 'Kphb';
   if (normalized.includes('chandnagar') || normalized.includes('chandanagar') || normalized.includes('chanda nagar') || normalized.includes('chnr')) return 'Chandanagar';
   if (normalized.includes('dilsukhnagar') || normalized.includes('dilshuknagar') || normalized.includes('dsnr')) return 'Dilshuknagar';
-  if (normalized.includes('nallagandla')) return 'Nallagandla';
+  if (normalized.includes('nallagandla') || normalized.includes('ngl') || normalized.includes('nlg')) return 'Nallagandla';
   if (normalized.includes('madhapur')) return 'Madhapur';
   if (normalized.includes('kukatpally')) return 'Kukatpally';
   
