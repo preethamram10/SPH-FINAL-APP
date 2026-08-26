@@ -1,0 +1,10 @@
+ReceptionDashboard.jsx:1165: const [consultationSubTab, setConsultationSubTab] = useState('clinical');
+ReceptionDashboard.jsx:1321: if (!selectedPatientFile || consultationSubTab !== 'nutrition') {
+ReceptionDashboard.jsx:1405: }, [selectedPatientFile, consultationSubTab, nutritionPlans]);
+ReceptionDashboard.jsx:13376: style={{ padding: '10px 20px', fontSize: '14px', fontWeight: '600', color: consultationSubTab === 'clinical' ? 'var(--primary-color)' : '#64748b', border: 'none', borderBottom: consultationSubTab === 'clinical' ? '2px solid var(--primary-color)' : '2px solid transparent', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+ReceptionDashboard.jsx:13383: style={{ padding: '10px 20px', fontSize: '14px', fontWeight: '600', color: consultationSubTab === 'nutrition' ? '#10b981' : '#64748b', border: 'none', borderBottom: consultationSubTab === 'nutrition' ? '2px solid #10b981' : '2px solid transparent', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+ReceptionDashboard.jsx:13390: style={{ padding: '10px 20px', fontSize: '14px', fontWeight: '600', color: consultationSubTab === 'media' ? 'var(--primary-color)' : '#64748b', border: 'none', borderBottom: consultationSubTab === 'media' ? '2px solid var(--primary-color)' : '2px solid transparent', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+ReceptionDashboard.jsx:13397: style={{ padding: '10px 20px', fontSize: '14px', fontWeight: '600', color: consultationSubTab === 'package' ? '#0ea5e9' : '#64748b', border: 'none', borderBottom: consultationSubTab === 'package' ? '2px solid #0ea5e9' : '2px solid transparent', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+ReceptionDashboard.jsx:13403: {consultationSubTab === 'package' ? (
+ReceptionDashboard.jsx:13492: ) : consultationSubTab === 'media' ? (
+ReceptionDashboard.jsx:13528: ) : consultationSubTab === 'clinical' ? (

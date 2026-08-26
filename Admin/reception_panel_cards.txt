@@ -1,0 +1,1 @@
+ReceptionPanel.js:1290: const PatientCard = ({ patient, queueNumber }) => {

@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Database Query Utility</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #f3f4f6;
+      margin: 0;
+      padding: 20px;
+      color: #1f2937;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+
+    h1 {
+      border-bottom: 2px solid #e5e7eb;
+      padding-bottom: 10px;
+      margin-top: 0;
+    }
+
+    .status {
+      font-weight: bold;
+      margin-top: 10px;
+      color: #059669;
+    }
+
+    .section {
+      margin-top: 40px;
+    }
+
+    h2 {
+      color: #2563eb;
+      margin-bottom: 15px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+
+    th,
+    td {
+      text-align: left;
+      padding: 10px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    th {
+      background-color: #f9fafb;
+      font-weight: 600;
+    }
+
+    tr:hover {
+      background-color: #f3f4f6;
+    }
+
+    pre {
+      margin: 0;
+      font-size: 11px;
+      background: #f1f5f9;
+      padding: 5px;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1>All Users in users Collection</h1>
+    <div id="status" class="status">Connecting...</div>
+    <table>
+      <thead>
+        <tr>
+          <th>UID / Doc ID</th>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Role</th>
+          <th>Phone</th>
+          <th>Branch ID</th>
+          <th>Branch Name</th>
+          <th>Status</th>
+          <th>Expo Push Token</th>
+        </tr>
+      </thead>
+      <tbody id="users-list">
+        <tr>
+          <td colspan="9">Loading...</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="section">
+      <h2>Recent Notifications (Top 10 Newest)</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>User ID</th>
+            <th>Title</th>
+            <th>Body</th>
+            <th>Type</th>
+            <th>Created At</th>
+            <th>Metadata</th>
+          </tr>
+        </thead>
+        <tbody id="notifications-list">
+          <tr>
+            <td colspan="6">Loading notifications...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getFirestore, collection, getDocs, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAohSNLyeS6bYtnk2QvB4HGo0LbHDw9b6Q",
+      authDomain: "spiritual-homeopathy-3b552.firebaseapp.com",
+      projectId: "spiritual-homeopathy-3b552",
+      storageBucket: "spiritual-homeopathy-3b552.firebasestorage.app",
+      appId: "1:81822616559:web:98a0b9cd974938cc87841a"
+    };
+
+    try {
+      const app = initializeApp(firebaseConfig);
+      const db = getFirestore(app);
+      document.getElementById('status').innerText = "Connected. Fetching users...";
+
+      // 1. Load users
+      const snap = await getDocs(collection(db, "users"));
+      const tbody = document.getElementById('users-list');
+      tbody.innerHTML = '';
+
+      snap.forEach(doc => {
+        const u = doc.data();
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><code>${doc.id}</code></td>
+          <td><strong>${u.name || u.fullName || "N/A"}</strong></td>
+          <td>${u.email || "N/A"}</td>
+          <td>${u.role || "N/A"}</td>
+          <td>${u.phone || "N/A"}</td>
+          <td>${u.branchId || "N/A"}</td>
+          <td>${u.branchName || "N/A"}</td>
+          <td>${u.status || "N/A"}</td>
+          <td><code>${u.expoPushToken || "N/A"}</code></td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      // 2. Load notifications
+      document.getElementById('status').innerText = "Loaded users. Fetching recent notifications...";
+      const qNotif = query(collection(db, "notifications"), orderBy("createdAt", "desc"), limit(10));
+      const snapNotif = await getDocs(qNotif);
+      const tbodyNotif = document.getElementById('notifications-list');
+      tbodyNotif.innerHTML = '';
+
+      if (snapNotif.empty) {
+        tbodyNotif.innerHTML = '<tr><td colspan="6">No notifications found</td></tr>';
+      } else {
+        snapNotif.forEach(doc => {
+          const n = doc.data();
+          const tr = document.createElement('tr');
+          const timeStr = n.createdAt?.toDate ? n.createdAt.toDate().toLocaleString() : (n.createdAt || "N/A");
+          tr.innerHTML = `
+            <td><code>${n.userId || "N/A"}</code></td>
+            <td><strong>${n.title || "N/A"}</strong></td>
+            <td>${n.body || "N/A"}</td>
+            <td><code>${n.type || "N/A"}</code></td>
+            <td>${timeStr}</td>
+            <td><pre>${JSON.stringify(n.metadata || null, null, 2)}</pre></td>
+          `;
+          tbodyNotif.appendChild(tr);
+        });
+      }
+
+      document.getElementById('status').innerText = "Loaded users and recent notifications successfully.";
+    } catch (err) {
+      document.getElementById('status').innerText = "Error: " + err.message;
+      document.getElementById('status').style.color = '#ef4444';
+    }
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,26 @@
+ReceptionPanel.js:1150: const nameMatch = patient.fullName?.toLowerCase().includes(qLower);
+ReceptionPanel.js:1225: const nameMatch = patient.fullName?.toLowerCase().includes(queryLower);
+ReceptionPanel.js:1292: const initials = patient.fullName
+ReceptionPanel.js:1293: ? patient.fullName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
+ReceptionPanel.js:1333: <Text style={[styles.patientName, isCompletedTab && { fontSize: 13 }]}>{patient.fullName}</Text>
+ReceptionPanel.js:1335: <View style={styles.onlineBadge}>
+ReceptionPanel.js:1336: <Text style={styles.onlineBadgeText}>ONLINE</Text>
+ReceptionPanel.js:1426: onPress={() => handleWhatsAppContact(patient.phone, patient.fullName)}
+ReceptionPanel.js:1431: <View style={[styles.statusBadge, { backgroundColor: statusInfo.bg, borderColor: statusInfo.border, paddingHorizontal: 8, paddingVertical: 2 }]}>
+ReceptionPanel.js:1432: <Text style={[styles.statusBadgeText, { color: statusInfo.text, fontSize: 9 }]}>{statusInfo.label}</Text>
+ReceptionPanel.js:1463: /* Dynamic Status Badge matching mockup details */
+ReceptionPanel.js:1464: <View style={[styles.statusBadge, { backgroundColor: statusInfo.bg, borderColor: statusInfo.border }]}>
+ReceptionPanel.js:1465: <Text style={[styles.statusBadgeText, { color: statusInfo.text }]}>{statusInfo.label}</Text>
+ReceptionPanel.js:1476: onPress={() => handleWhatsAppContact(patient.phone, patient.fullName)}
+ReceptionPanel.js:1564: renderItem={({ item }) => (
+ReceptionPanel.js:1630: renderItem={({ item }) => (
+ReceptionPanel.js:1636: label={item.fullName ? item.fullName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : 'P'}
+ReceptionPanel.js:1641: <Text style={styles.patientName}>{item.fullName}</Text>
+ReceptionPanel.js:1679: {/* Dynamic Status Badge */}
+ReceptionPanel.js:1680: <View style={[styles.statusBadge, {
+ReceptionPanel.js:1687: <Text style={[styles.statusBadgeText, { color: getStatusStyle(item.status).text, fontSize: 9 }]}>
+ReceptionPanel.js:2223: // Status Badge styles
+ReceptionPanel.js:2224: statusBadge: {
+ReceptionPanel.js:2230: statusBadgeText: { fontSize: 10, fontWeight: '800' },
+ReceptionPanel.js:2279: onlineBadge: {
+ReceptionPanel.js:2287: onlineBadgeText: {

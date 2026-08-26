@@ -1,0 +1,70 @@
+const filteredRevenuePatients = useMemo(() => {
+    return patients.filter(patient => {
+      if (patient.paymentStatus !== 'paid') return false;
+
+      // 1. Search term match (Name or Phone)
+      const matchesSearch = !revenueSearch.trim() ||
+        (patient.fullName && patient.fullName.toLowerCase().includes(revenueSearch.toLowerCase())) ||
+        (patient.phone && patient.phone.includes(revenueSearch.trim()));
+
+      // 2. Branch match
+      const matchesBranch = isBranchMatchHelper(patient.branchId, patient.branchName, revenueBranchId, branches);
+
+      // 3. Date / Month match
+      let matchesDateRange = true;
+      let rawDateStr = patient.paymentCollectedAt || patient.appointmentDate || patient.completedAt || patient.createdAt || patient.date;
+
+      if (rawDateStr) {
+        let d = parseAnyDateObj(rawDateStr);
+
+        if (d && !isNaN(d.getTime())) {
+          if (revenueDate) {
+            const filterDate = parseHTMLDateToDateObj(revenueDate);
+            if (filterDate) {
+              d.setHours(0, 0, 0, 0);
+              filterDate.setHours(0, 0, 0, 0);
+              if (d.getTime() !== filterDate.getTime()) matchesDateRange = false;
+            }
+          } else if (revenueYear !== 'all') {
+            if (d.getFullYear() !== parseInt(revenueYear, 10)) {
+              matchesDateRange = false;
+            } else if (revenueMonth !== 'all') {
+              if (d.getMonth() + 1 !== parseInt(revenueMonth, 10)) {
+                matchesDateRange = false;
+              }
+            }
+          }
+        } else {
+          if (revenueDate || revenueYear !== 'all') matchesDateRange = false;
+        }
+      } else {
+        if (revenueDate || revenueYear !== 'all') matchesDateRange = false;
+      }
+
+      const matchesSource = revenueSource === 'all' || (patient.source || 'Walk-in') === revenueSource;
+      const matchesMethod = revenueMethod === 'all' || patient.paymentMethod === revenueMethod;
+
+      const docName = patient.doctor || patient.doctorName || patient.assignDoctor || 'N/A';
+      const matchesDoctor = revenueDoctor === 'all' || docName === revenueDoctor;
+
+      let matchesSplit = true;
+      if (revenueSplitType !== 'all') {
+        const hasMed = patient.itemsPaid?.medicine > 0;
+        let rowType = 'Consultation';
+        if (hasMed) {
+          rowType = 'Consultation & Medicine Fee';
+        }
+        matchesSplit = rowType === revenueSplitType;
+      }
+
+      let matchesAmount = true;
+      if (revenueAmountRange !== 'all') {
+        const consAmt = Number(patient.itemsPaid?.consultation !== undefined ? patient.itemsPaid.consultation : (patient.paymentAmount || 0));
+        const medAmt = Number(patient.itemsPaid?.medicine || 0);
+        const dietAmt = Number(patient.itemsPaid?.dietPlan || 0);
+        matchesAmount = checkAmountRange(consAmt, revenueAmountRange) || checkAmountRange(medAmt, revenueAmountRange) || checkAmountRange(dietAmt, revenueAmountRange);
+      }
+
+      return matchesSearch && matchesBranch && matchesDateRange && matchesSource && matchesMethod && matchesDoctor && matchesSplit && matchesAmount;
+    });
+  }, [patients, revenueSearch, revenueBranchId, branches, revenueDate, revenueYear, revenueMonth, revenueSource, revenueMethod, revenueDoctor, revenueSplitType, revenueAmountRange]);

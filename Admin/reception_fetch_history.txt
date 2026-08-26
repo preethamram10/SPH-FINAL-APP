@@ -1,0 +1,71 @@
+Line 3063:   const fetchPatientFileHistory = async (phone, currentDocId) => {
+3064:     if (!phone) return;
+3065:     setLoadingHistory(true);
+3066:     try {
+3067:       const historyList = [];
+3068:       const cleanPhone = String(phone).replace(/\D/g, '').slice(-10);
+3069: 
+3070:       // 1. Query 'allpatients'
+3071:       const qPatients = query(
+3072:         collection(db, 'allpatients'),
+3073:         where('phone', '==', phone),
+3074:         where('status', '==', 'completed')
+3075:       );
+3076:       const snapPatients = await getDocs(qPatients);
+3077:       snapPatients.forEach(docSnap => {
+3078:         if (docSnap.id !== currentDocId) {
+3079:           historyList.push({ id: docSnap.id, _collection: 'allpatients', ...docSnap.data() });
+3080:         }
+3081:       });
+3082: 
+3083:       // 2. Query 'patient_list'
+3084:       const qAppts = query(
+3085:         collection(db, 'patient_list'),
+3086:         where('phone', '==', phone)
+3087:       );
+3088:       const snapAppts = await getDocs(qAppts);
+3089:       snapAppts.forEach(docSnap => {
+3090:         if (docSnap.id !== currentDocId && !historyList.some(h => h.id === docSnap.id)) {
+3091:           historyList.push({ id: docSnap.id, _collection: 'patient_list', ...docSnap.data() });
+3092:         }
+3093:       });
+3094: 
+3095:       // 3. Optional cleaned phone query
+3096:       if (cleanPhone && cleanPhone !== phone) {
+3097:         const qPatientsClean = query(
+3098:           collection(db, 'allpatients'),
+3099:           where('phone', '==', cleanPhone),
+3100:           where('status', '==', 'completed')
+3101:         );
+3102:         const snapPatientsClean = await getDocs(qPatientsClean);
+3103:         snapPatientsClean.forEach(docSnap => {
+3104:           if (docSnap.id !== currentDocId && !historyList.some(h => h.id === docSnap.id)) {
+3105:             historyList.push({ id: docSnap.id, _collection: 'allpatients', ...docSnap.data() });
+3106:           }
+3107:         });
+3108: 
+3109:         const qApptsClean = query(
+3110:           collection(db, 'patient_list'),
+3111:           where('phone', '==', cleanPhone)
+3112:         );
+3113:         const snapApptsClean = await getDocs(qApptsClean);
+3114:         snapApptsClean.forEach(docSnap => {
+3115:           if (docSnap.id !== currentDocId && !historyList.some(h => h.id === docSnap.id)) {
+3116:             historyList.push({ id: docSnap.id, _collection: 'patient_list', ...docSnap.data() });
+3117:           }
+3118:         });
+3119:       }
+3120: 
+3121:       historyList.sort((a, b) => {
+3122:         const timeA = a.completedAt?.toDate ? a.completedAt.toDate() : (a.completedAt ? new Date(a.completedAt) : (a.updatedAt ? new Date(a.updatedAt) : 0));
+3123:         const timeB = b.completedAt?.toDate ? b.completedAt.toDate() : (b.completedAt ? new Date(b.completedAt) : (b.updatedAt ? new Date(b.updatedAt) : 0));
+3124:         return timeB - timeA;
+3125:       });
+3126: 
+3127:       setPatientFileHistory(historyList);
+3128:     } catch (err) {
+3129:       console.error("Error fetching patient history on web:", err);
+3130:     } finally {
+3131:       setLoadingHistory(false);
+3132:     }
+3133:   };

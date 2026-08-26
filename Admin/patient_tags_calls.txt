@@ -1,0 +1,9 @@
+ReceptionDashboard.jsx:8579: {renderPatientTags(item, activePackageMap)}
+ReceptionDashboard.jsx:9042: {renderPatientTags(p, activePackageMap)}
+ReceptionDashboard.jsx:9158: {renderPatientTags(p, activePackageMap)}
+ReceptionDashboard.jsx:9299: {renderPatientTags(patient, activePackageMap)}
+ReceptionDashboard.jsx:9906: {renderPatientTags(patient, activePackageMap)}
+ReceptionDashboard.jsx:10133: {renderPatientTags(b, activePackageMap)}
+ReceptionDashboard.jsx:10620: {renderPatientTags(f, activePackageMap)}
+ReceptionDashboard.jsx:13192: {renderPatientTags(selectedPatientFile, activePackageMap)}
+ReceptionDashboard.jsx:13217: {renderPatientTags(selectedPatientFile, activePackageMap)}

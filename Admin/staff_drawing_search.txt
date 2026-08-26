@@ -1,0 +1,2 @@
+screens\reception\PatientDetails.js contains matches
+screens\reception\PatientProfile.js contains matches

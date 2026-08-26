@@ -1,0 +1,244 @@
+2020:   const [selectedBill, setSelectedBill] = useState(null);
+2068:     if (selectedBill) {
+2070:       const followUpDate = selectedBill?.raw?.followUpDate || selectedBill?.followUpDate;
+2072:       const doctorExplicitlySetConsultFee = selectedBill?.consultationFee !== undefined && selectedBill?.consultationFee !== null;
+2073:       const docConsultFee = doctorExplicitlySetConsultFee ? Number(selectedBill.consultationFee) : null;
+2074:       const docMedFee = selectedBill?.medicineFeeRequested !== undefined && selectedBill?.medicineFeeRequested !== null ? Number(selectedBill.medicineFeeRequested) : 0;
+2076:       const itemsPaidFromDoc = selectedBill?.itemsPaid || selectedBill?.raw?.itemsPaid || null;
+2081:       const resolvedConsultFee = docConsultFee !== null ? docConsultFee : (itemsConsultFee !== null ? itemsConsultFee : (selectedBill?.paymentAmount ? Number(selectedBill.paymentAmount) : 0));
+2107:         setCustomFeeAmount(String(selectedBill.approvedAmount || (initialTotal > 0 ? initialTotal : '')));
+2113:         setCustomFeeAmount(String(selectedBill.approvedAmount || (initialTotal > 0 ? initialTotal : '')));
+2117:       const defaultMethod = selectedBill.source === 'appointments' ? 'app' : 'cash';
+2123:           const phone = (selectedBill.phone || '').replace(/\D/g, '').slice(-10);
+2124:           const billId = selectedBill.id;
+2156:             setCustomFeeAmount(String(selectedBill.approvedAmount || (newTotal > 0 ? newTotal : '')));
+2157:             setPaymentLegs([{ method: defaultMethod, amount: String(selectedBill.approvedAmount || (newTotal > 0 ? newTotal : '')) }]);
+2171:           const phone = (selectedBill.phone || '').replace(/\D/g, '').slice(-10);
+2178:             selectedBill.phone
+2217:             setCustomFeeAmount(String(selectedBill.approvedAmount || (newTotal > 0 ? newTotal : '')));
+2218:             setPaymentLegs([{ method: defaultMethod, amount: String(selectedBill.approvedAmount || (newTotal > 0 ? newTotal : '')) }]);
+2234:           const patientPhone = selectedBill.phone || selectedBill.patientPhone || selectedBill.phoneNumber || selectedBill.contactNumber || selectedBill.contact || '';
+2246:             if (d.id !== selectedBill.id) {
+2265:         where('billId', '==', selectedBill.id)
+2284:         where('targetId', '==', selectedBill.id),
+2327:   }, [selectedBill]);
+2329:   const docTargetConsult = selectedBill ? (selectedBill.consultationFee !== undefined && selectedBill.consultationFee !== null ? Number(selectedBill.consultationFee) : (selectedBill.paymentAmount ? Number(selectedBill.paymentAmount) : 0)) : 0;
+2330:   const docTargetMed = selectedBill ? (selectedBill.medicineFeeRequested ? Number(selectedBill.medicineFeeRequested) : 0) : 0;
+2334:     if (selectedBill) {
+2342:       const followUpDate = selectedBill?.raw?.followUpDate || selectedBill?.followUpDate;
+2370:   }, [billingMode, targetAmount, selectedBill, patientActivePackage]);
+2374:     const followUpDate = selectedBill?.raw?.followUpDate || selectedBill?.followUpDate;
+2389:     const followUpDate = selectedBill?.raw?.followUpDate || selectedBill?.followUpDate;
+2420:       if (!selectedBill) {
+2427:   }, [selectedNutritionPayPlan, selectedBill]);
+2441:     if (showPayModal && selectedBill) {
+2445:           const coll = selectedBill.source === 'appointments' ? 'appointments' : 'allpatients';
+2446:           const docRef = doc(db, coll, selectedBill.id);
+2459:             if (patientData.medicineFeeRequested !== selectedBill.medicineFeeRequested || patientData.consultationFee !== selectedBill.consultationFee) {
+2460:               setSelectedBill(prev => ({
+2467:             setPayPatientDoc(selectedBill);
+2468:             setPayComplaint(selectedBill.complaint || selectedBill.subject || '');
+2469:             setPayNotes(selectedBill.receptionNotes || selectedBill.notes || '');
+2470:             const sbUrls = selectedBill.prescriptionUrls || (selectedBill.prescriptionUrl ? [selectedBill.prescriptionUrl] : []);
+2471:             if (selectedBill.diagnosisDrawingUrl && !sbUrls.includes(selectedBill.diagnosisDrawingUrl)) sbUrls.push(selectedBill.diagnosisDrawingUrl);
+2475:           const phone = patientData?.phone || selectedBill.phone;
+2479:               collection(db, selectedBill.source === 'appointments' ? 'appointments' : 'allpatients'),
+2526:   }, [showPayModal, selectedBill]);
+2530:     if (!file || !selectedBill) return;
+2534:       const storageRef = ref(storage, `prescriptions/${selectedBill.id}_${Date.now()}.jpg`);
+2541:       const coll = selectedBill.source === 'appointments' ? 'appointments' : 'allpatients';
+2542:       const docRef = doc(db, coll, selectedBill.id);
+2563:     if (!selectedBill) return;
+2570:       const coll = selectedBill.source === 'appointments' ? 'appointments' : 'allpatients';
+2571:       const docRef = doc(db, coll, selectedBill.id);
+2589:     if (!selectedBill) return;
+2592:       const coll = selectedBill.source === 'appointments' ? 'appointments' : 'allpatients';
+2593:       const docRef = doc(db, coll, selectedBill.id);
+2612:     if (selectedBill && !selectedBill.amountLocked) {
+2619:         const prevPending = Number(selectedBill?.pendingAmount || 0);
+2628:   }, [includeConsultation, consultationFee, includeMedicine, medicineFee, includeDiet, dietFee, includePackage, packageFee, payLaterAmount, selectedBill, historicalPendingAmount, includePending]);
+3913:         if (selectedBill) {
+3914:           const updated = bls.find(b => b.id === selectedBill.id);
+3916:             setSelectedBill(prev => ({ ...prev, ...updated }));
+5105:     if (!selectedBill) return;
+5124:     const isAppointment = selectedBill.source === 'appointments';
+5139:         prescriptionDuration: counterPrescriptionDuration || selectedBill?.prescriptionDuration || selectedBill?.raw?.prescriptionDuration || ''
+5150:         paymentId: paymentId || (selectedBill.source === 'appointments' ? 'ONLINE_' : 'WALKIN_') + method.toUpperCase(),
+5152:         ...(selectedBill.status === 'completed' ? { status: 'done' } : {}),
+5161:       const isOnline = selectedBill.source === 'appointments' || selectedBill.source === 'UserApp' || selectedBill.source === 'Patient App' || selectedBill.source === 'Online' || selectedBill.isOnline || selectedBill._type === 'online';
+5162:       await updateUnifiedDocument(selectedBill.id, isOnline, updatePayload);
+5167:           const patientPhone = selectedBill.phone || selectedBill.patientPhone || selectedBill.phoneNumber || selectedBill.contactNumber || selectedBill.contact || '';
+5172:               if (d.id !== selectedBill.id) {
+5210:       const followUpDate = selectedBill.followUpDate || selectedBill.raw?.followUpDate || '';
+5211:       const followUpInterval = selectedBill.followUpInterval || selectedBill.raw?.followUpInterval || '';
+5216:       await updateUnifiedDocument(selectedBill.id, isOnline, {
+5223:       if (selectedBill.phone) {
+5225:           const qProfile = query(collection(db, 'patients'), where('phone', '==', selectedBill.phone));
+5262:           const patientUid = selectedBill.patientId || selectedBill.id;
+5288:           if (selectedBill.patientId && selectedBill.patientId !== 'WALKIN_USER') {
+5289:             patientDocRef = doc(db, 'allpatients', selectedBill.patientId);
+5292:             const cleanPhone = (selectedBill.phone || '').replace(/\D/g, '').slice(-10);
+5320:       const targetBranchId = selectedBill.branchId || userData?.branchId || 'KPHB';
+5321:       const targetBranchName = selectedBill.branchName || userData?.branchName || 'KPHB Branch';
+5322:       const doctorName = selectedBill.doctor || selectedBill.doctorName || 'General Doctor';
+5347:             patientId: isAppointment ? (selectedBill.patientId || selectedBill.id) : selectedBill.id,
+5348:             patientName: selectedBill.fullName || 'Walk-in',
+5349:             phone: selectedBill.phone || selectedBill.patientPhone || '',
+5350:             registrationId: selectedBill.registrationId || selectedBill.regId || '',
+5351:             regId: selectedBill.registrationId || selectedBill.regId || '',
+5352:             source: selectedBill.raw?.source || selectedBill.source || 'Walk-in',
+5368:             patientId: isAppointment ? (selectedBill.patientId || selectedBill.id) : selectedBill.id,
+5369:             patientName: selectedBill.fullName || 'Walk-in',
+5370:             phone: selectedBill.phone || selectedBill.patientPhone || '',
+5371:             registrationId: selectedBill.registrationId || selectedBill.regId || '',
+5372:             regId: selectedBill.registrationId || selectedBill.regId || '',
+5373:             source: selectedBill.raw?.source || selectedBill.source || 'Walk-in',
+5389:           patientId: isAppointment ? (selectedBill.patientId || selectedBill.id) : selectedBill.id,
+5390:           patientName: selectedBill.fullName || 'Walk-in',
+5391:           phone: selectedBill.phone || selectedBill.patientPhone || '',
+5392:           registrationId: selectedBill.registrationId || selectedBill.regId || '',
+5393:           regId: selectedBill.registrationId || selectedBill.regId || '',
+5394:           source: selectedBill.raw?.source || selectedBill.source || 'Walk-in',
+5416:             body: `Collected ₹${amountPaid} from ${selectedBill.fullName || 'Walk-in'} via ${method.toUpperCase()} (${targetBranchName}).`,
+5421:               patientName: selectedBill.fullName || 'Walk-in',
+5434:         const targetPatId = isAppointment ? (selectedBill.patientId || selectedBill.id) : selectedBill.id;
+5456:           selectedBill.phone || selectedBill.patientPhone || '',
+5457:           selectedBill.fullName || selectedBill.patientName || 'Patient',
+5459:           paymentId || (selectedBill.source === 'appointments' ? 'ONLINE_' : 'WALKIN_') + method.toUpperCase(),
+5470:           patientId: isAppointment ? (selectedBill.patientId || selectedBill.id) : selectedBill.id,
+5471:           fullName: selectedBill.fullName || selectedBill.patientName || 'Online Patient',
+5472:           phone: selectedBill.phone || '',
+5473:           email: selectedBill.email || '',
+5474:           regId: selectedBill.registrationId || selectedBill.regId || '',
+5475:           doctor: selectedBill.doctor || selectedBill.doctorName || '',
+5482:           appointmentDate: selectedBill.appointmentDate || selectedBill.dateString || selectedBill.date || '',
+5483:           appointmentTime: selectedBill.appointmentTime || selectedBill.timeSlot || '',
+5484:           followUpDate: selectedBill.followUpDate || '',
+5485:           followUpInterval: selectedBill.followUpInterval || '',
+5496:       setSelectedBill(null);
+5500:           patientName: selectedBill.fullName || selectedBill.patientName || 'Patient',
+5501:           phone: selectedBill.phone || 'N/A',
+5502:           doctor: selectedBill.doctor || selectedBill.doctorName || 'General Doctor',
+5503:           branch: selectedBill.branchName || userData?.branchName || 'Clinic',
+5504:           date: selectedBill.appointmentDate || selectedBill.dateString || new Date().toLocaleDateString('en-GB'),
+5505:           timeSlot: selectedBill.appointmentTime || selectedBill.timeSlot || 'N/A',
+5513:           itemsPaid: itemsPaid || selectedBill.itemsPaid || null,
+5514:           billingMode: billingMode || selectedBill.billingMode || null
+6185:           description: `${includeMedicine ? 'Consultation & Medicine Fee' : 'Consultation Fee'} for ${selectedBill.fullName || 'Patient'}`
+6249:       const cleanPhone = (selectedBill.phone || '').replace(/\D/g, '').slice(-10);
+6256:         description: `${includeMedicine ? 'Consultation & Medicine Fee' : 'Consultation Fee'} - ${selectedBill.fullName || 'Patient'}`,
+6263:           name: selectedBill.fullName || '',
+6265:           email: selectedBill.email || ''
+6332:     if (!selectedBill) return;
+6336:         billId: selectedBill.id,
+6337:         patientName: selectedBill.fullName || selectedBill.patientName || 'Patient',
+6338:         patientPhone: selectedBill.phone || 'N/A',
+6339:         branchId: selectedBill.branchId || userData?.branchId || 'Unknown',
+6340:         branchName: selectedBill.branchName || userData?.branchName || 'Unknown',
+6355:     if (!selectedBill) return;
+6358:     const isOnlineBooking = selectedBill.source === 'appointments' || selectedBill.source === 'UserApp' || selectedBill.source === 'Patient App' || selectedBill.isOnline;
+6384:       await updateDoc(doc(db, 'allpatients', selectedBill.id), updatePayload).catch(err => { });
+6398:       const patientUserId = selectedBill.patientId || selectedBill.id;
+6408:           : `Spiritual Homeopathy - ${selectedBill.branchName || 'Clinic'} has requested ₹${customFeeAmount} for your consultation. Tap to pay online.`;
+6437:       setSelectedBill(null);
+6918:     if (!selectedBill) return;
+6920:       const collectionName = selectedBill.source === 'appointments' ? 'appointments' : 'allpatients';
+6925:       await updateDoc(doc(db, collectionName, selectedBill.id), {
+6954:     const targetDoc = isNutrition ? selectedNutritionPayPlan : selectedBill;
+7071:     if (!selectedBill) return;
+7085:       await updateDoc(doc(db, collectionName, selectedBill.id), {
+7096:         const notifBody = `Collect ₹${reqAmt} (instead of ₹${customFeeAmount || 0}) for ${selectedBill.fullName || 'Patient'}.`;
+7097:         await sendPushToRole('hr', notifTitle, notifBody, { type: 'medicine_discount_request', patientId: selectedBill.id });
+7098:         await notifyAllHRsFirestore(notifTitle, notifBody, 'medicine_discount_request', { patientId: selectedBill.id });
+7115:     if (!selectedBill) return;
+7129:       await updateDoc(doc(db, collectionName, selectedBill.id), {
+7133:         medicineDiscountOriginal: Number(selectedBill.consultationFee || consultationFee),
+7141:         const notifBody = `Collect ₹${reqAmt} (instead of ₹${selectedBill.consultationFee || consultationFee}) for ${selectedBill.fullName || 'Patient'}.`;
+7142:         await sendPushToRole('hr', notifTitle, notifBody, { type: 'medicine_discount_request', patientId: selectedBill.id });
+7143:         await notifyAllHRsFirestore(notifTitle, notifBody, 'medicine_discount_request', { patientId: selectedBill.id });
+7518:   const isPaid = selectedBill?.paymentStatus === 'paid';
+7519:   console.log('RECEPTION DASHBOARD RENDER:', { selectedBill, hasMedFee: selectedBill ? !!((selectedBill.medicineFeeRequested && Number(selectedBill.medicineFeeRequested) > 0) || (selectedBill.consultationFee && Number(selectedBill.consultationFee) > 0)) : false, medicineFeeRequested: selectedBill?.medicineFeeRequested });
+8817:                                         setSelectedBill({ ...item, source: item.source });
+8917:                                         setSelectedBill({ ...item, source: item.source });
+10140:                               <button onClick={() => { setSelectedBill({ ...b, source: 'allpatients' }); setShowPayModal(true); }} className="btn-primary" style={{ padding: '6px 12px', fontSize: '12px' }}>
+11465:         {showPayModal && selectedBill && (
+11487:                 <button onClick={() => { stopQrPolling(); setShowPayModal(false); setSelectedBill(null); }} style={{ background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={20} /></button>
+11505:                           <div>Name: <strong style={{ color: 'var(--text-main)' }}>{selectedBill.fullName}</strong></div>
+11506:                           <div>Phone: <span style={{ color: 'var(--text-main)' }}>{selectedBill.phone || 'N/A'}</span></div>
+11601:                           {(selectedBill?.prescriptionText || payPatientDoc?.prescriptionText || (selectedBill?.medicines && selectedBill?.medicines.length > 0) || (payPatientDoc?.medicines && payPatientDoc?.medicines.length > 0) || selectedBill?.medicalHistory || payPatientDoc?.medicalHistory) && (
+11607:                               {(selectedBill?.medicalHistory || payPatientDoc?.medicalHistory) && (
+11610:                                   <p style={{ margin: '4px 0 0 0', color: 'var(--text-main)', whiteSpace: 'pre-wrap' }}>{selectedBill?.medicalHistory || payPatientDoc?.medicalHistory}</p>
+11614:                               {(selectedBill?.prescriptionText || payPatientDoc?.prescriptionText) && (
+11617:                                   <p style={{ margin: '4px 0 0 0', color: 'var(--text-main)', whiteSpace: 'pre-wrap' }}>{selectedBill?.prescriptionText || payPatientDoc?.prescriptionText}</p>
+11621:                               {((selectedBill?.medicines && selectedBill.medicines.length > 0) || (payPatientDoc?.medicines && payPatientDoc.medicines.length > 0)) && (
+11625:                                     {(selectedBill?.medicines || payPatientDoc?.medicines).map((med, idx) => (
+11653:                               openPatientFile({ id: selectedBill.id, source: selectedBill.source, raw: selectedBill.raw || selectedBill, ...selectedBill });
+11773:                           <span style={{ color: 'var(--text-main)' }}>₹{Number(selectedBill?.itemsPaid?.consultation || selectedBill?.consultationFee || 0)}</span>
+11777:                           <span style={{ color: 'var(--text-main)' }}>₹{Number(selectedBill?.itemsPaid?.medicine || selectedBill?.medicineFeeRequested || 0)}</span>
+11781:                           <span style={{ color: 'var(--text-main)' }}>₹{Number(selectedBill?.itemsPaid?.dietPlan || 0)}</span>
+11785:                           <span>₹{Number(selectedBill?.itemsPaid?.consultation || selectedBill?.consultationFee || 0) + Number(selectedBill?.itemsPaid?.medicine || selectedBill?.medicineFeeRequested || 0) + Number(selectedBill?.itemsPaid?.dietPlan || 0)}</span>
+11790:                         <div>Payment Method: <span style={{ color: 'var(--text-main)', fontWeight: 'bold', textTransform: 'uppercase' }}>{selectedBill?.paymentMethod || 'N/A'}</span></div>
+11791:                         {selectedBill?.paymentMethod === 'split' && selectedBill?.paymentSplitDetails && (
+11793:                             {Object.entries(selectedBill.paymentSplitDetails).map(([method, amt]) => Number(amt) > 0 && (
+11802:                           patientName: selectedBill.fullName || selectedBill.patientName || 'Patient',
+11803:                           phone: selectedBill.phone || 'N/A',
+11804:                           doctor: selectedBill.doctor || selectedBill.doctorName || 'General Doctor',
+11805:                           branch: selectedBill.branchName || userData?.branchName || 'Clinic',
+11806:                           date: selectedBill.appointmentDate || selectedBill.dateString || new Date().toLocaleDateString('en-GB'),
+11807:                           timeSlot: selectedBill.appointmentTime || selectedBill.timeSlot || 'N/A',
+11808:                           amountPaid: selectedBill.amountPaid || selectedBill.paymentAmount || customFeeAmount || 0,
+11809:                           method: selectedBill.paymentMethod || 'online',
+11810:                           paymentId: selectedBill.paymentId || '',
+11811:                           isSplit: selectedBill.paymentMethod === 'split',
+11812:                           splitDetails: selectedBill.paymentSplitDetails || null,
+11813:                           itemsPaid: selectedBill.itemsPaid || null,
+11814:                           billingMode: selectedBill.billingMode || null
+11818:                         <button type="button" className="btn-secondary" onClick={() => handleShareWhatsApp(selectedBill)} style={{ flex: 1, padding: '10px', fontSize: '13px' }}>
+11854:                           const followUp = selectedBill?.raw?.followUpDate || selectedBill?.followUpDate;
+11889:                               disabled={showBlockMessage || selectedBill.amountLocked}
+11939:                                 disabled={showBlockMessage || selectedBill.amountLocked || billingMode !== 'split' || !!patientActivePackage}
+11945:                             {includeConsultation && selectedBill?.consultationFee > 0 && (
+11948:                                 {selectedBill.medicineDiscountStatus === 'pending' && selectedBill.medicineDiscountType === 'consultation' ? (
+11951:                                     <div style={{ fontSize: '11px', marginTop: '2px' }}>Requested Amount: <strong>₹{selectedBill.medicineDiscountRequested}</strong></div>
+11952:                                     {selectedBill.medicineDiscountNote && <div style={{ fontSize: '10px', color: '#b45309', fontStyle: 'italic', marginTop: '4px' }}>Note: "{selectedBill.medicineDiscountNote}"</div>}
+11954:                                 ) : selectedBill.medicineDiscountStatus === 'approved' && selectedBill.medicineDiscountType === 'consultation' ? (
+11957:                                     <div style={{ fontSize: '11px' }}>Approved Amount: <strong>₹{selectedBill.consultationFee}</strong></div>
+12035:                                 disabled={showBlockMessage || selectedBill.amountLocked || billingMode !== 'split' || !!patientActivePackage}
+12041:                             {includeMedicine && selectedBill?.medicineFeeRequested > 0 && (!selectedBill.medicineDiscountType || selectedBill.medicineDiscountType === 'medicine') && (
+12044:                                 {selectedBill.medicineDiscountStatus === 'pending' && (!selectedBill.medicineDiscountType || selectedBill.medicineDiscountType === 'medicine') ? (
+12047:                                     <div style={{ fontSize: '11px', marginTop: '2px' }}>Requested Amount: <strong>₹{selectedBill.medicineDiscountRequested}</strong></div>
+12048:                                     {selectedBill.medicineDiscountNote && <div style={{ fontSize: '10px', color: '#b45309', fontStyle: 'italic', marginTop: '4px' }}>Note: "{selectedBill.medicineDiscountNote}"</div>}
+12050:                                 ) : selectedBill.medicineDiscountStatus === 'approved' && (!selectedBill.medicineDiscountType || selectedBill.medicineDiscountType === 'medicine') ? (
+12053:                                     <div style={{ fontSize: '11px' }}>Approved Amount: <strong>₹{selectedBill.medicineFeeRequested}</strong></div>
+12057:                                     {selectedBill.medicineDiscountStatus === 'rejected' && (!selectedBill.medicineDiscountType || selectedBill.medicineDiscountType === 'medicine') && (
+12059:                                         ✕ Discount Rejected (Same Amount: ₹{selectedBill.medicineFeeRequested})
+12122:                             <input type="checkbox" checked={includeDiet} disabled={showBlockMessage || selectedBill.amountLocked} onChange={(e) => setIncludeDiet(e.target.checked)} />
+12131:                               disabled={showBlockMessage || selectedBill.amountLocked}
+12142:                                 <input type="checkbox" checked={includePackage} disabled={showBlockMessage || selectedBill.amountLocked} onChange={(e) => setIncludePackage(e.target.checked)} />
+12151:                                   disabled={showBlockMessage || selectedBill.amountLocked}
+12187:                               disabled={showBlockMessage || selectedBill?.amountLocked}
+12206:                                   disabled={showBlockMessage || selectedBill?.amountLocked}
+12215:                                   disabled={showBlockMessage || selectedBill?.amountLocked}
+12218:                                 {!(showBlockMessage || selectedBill?.amountLocked) && (
+12233:                                   disabled={showBlockMessage || selectedBill?.amountLocked}
+12244:                                   disabled={showBlockMessage || selectedBill?.amountLocked}
+12255:                           {!(showBlockMessage || selectedBill?.amountLocked) && (
+12267:                         {(Number(selectedBill?.pendingAmount || 0) + historicalPendingAmount) > 0 && (
+12278:                             <span style={{ fontSize: '14px', color: '#ef4444', fontWeight: '800' }}>+ ₹{Number(selectedBill?.pendingAmount || 0) + historicalPendingAmount}</span>
+12290:                             disabled={showBlockMessage || selectedBill?.amountLocked}
+12300:                         {!selectedBill.amountLocked ? (
+12533:                                     disabled={loadingQr || !!pendingAmountRequest || selectedBill?.medicineDiscountStatus === 'pending'}
+12563:                               <button type="submit" className="btn-primary" disabled={processingRzp || !!pendingAmountRequest || selectedBill?.medicineDiscountStatus === 'pending' || Math.round(paymentLegs.reduce((sum, leg) => sum + Number(leg.amount || 0), 0) * 100) !== Math.round(Number(customFeeAmount) * 100)} style={{ width: '100%', marginTop: '20px' }}>
+12576:                       {selectedBill?.paymentStatus === 'paid' && (
+12581:                               patientName: selectedBill.fullName || selectedBill.patientName || 'Patient',
+12582:                               phone: selectedBill.phone || 'N/A',
+12583:                               doctor: selectedBill.doctor || selectedBill.doctorName || 'General Doctor',
+12584:                               branch: selectedBill.branchName || userData?.branchName || 'Clinic',
+12585:                               date: selectedBill.appointmentDate || selectedBill.dateString || '',
+12586:                               timeSlot: selectedBill.appointmentTime || selectedBill.timeSlot || 'N/A',
+12587:                               amountPaid: selectedBill.amountPaid || selectedBill.paymentAmount || customFeeAmount,
+12588:                               method: selectedBill.paymentMethod || 'cash',
+12589:                               paymentId: selectedBill.paymentId || '',
+12590:                               isSplit: selectedBill.paymentMethod === 'split',
+12591:                               splitDetails: selectedBill.paymentSplitDetails || null, itemsPaid: selectedBill.itemsPaid || null, billingMode: selectedBill.billingMode || null
+12599:                             onClick={() => handleShareReceiptWhatsApp(selectedBill)}

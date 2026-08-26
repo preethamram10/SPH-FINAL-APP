@@ -1,0 +1,62 @@
+PatientProfile.js:69: const SectionHead = ({ title, icon: Icon, color = COLORS.secondary }) => (
+PatientProfile.js:72: <Text style={s.sectionHeadText}>{title}</Text>
+PatientProfile.js:335: const title = fee.note ? `Other Fee (${fee.note})` : `Other Fee ${idx + 1}`;
+PatientProfile.js:338: <td style="padding:10px; border-bottom:1px solid #e2e8f0; font-size:13px; color:#475569;">${title}</td>
+PatientProfile.js:376: const patientName = appt.fullName || appt.patientName || 'Patient';
+PatientProfile.js:437: <title>Payment Receipt - ${patientName}</title>
+PatientProfile.js:479: .section-title { font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+PatientProfile.js:480: .section-title::after { content: ''; flex: 1; height: 1px; background: #e2e8f0; }
+PatientProfile.js:553: <div class="section-title">Patient Details</div>
+PatientProfile.js:555: <div class="info-item"><label>Patient Name</label><span>${patientName}</span></div>
+PatientProfile.js:563: <div class="section-title">Payment Information</div>
+PatientProfile.js:576: <div class="section-title">Fee Breakdown</div>
+PatientProfile.js:624: const patientName = appt.fullName || appt.patientName || 'Patient';
+PatientProfile.js:625: const cleanPatientName = patientName.replace(/[^a-zA-Z0-9]/g, '_');
+PatientProfile.js:635: dialogTitle: `Receipt – ${patientName} `,
+PatientProfile.js:681: const patientName = appt.fullName || appt.patientName || 'Patient';
+PatientProfile.js:688: const text = `* SPIRITUAL HOMEOPATHY CLINIC *\n * Payment Receipt Confirmation *\n\nDear ${patientName}, \nWe have successfully received payment for your consultation.\n\n * Receipt Details:*\n• * Doctor:* ${doctorName} \n• * Date:* ${apptDate} \n• * Amount Paid:* ₹${amount.toFixed(2)} \n• * Payment Mode:* ${method.toUpperCase()} \n• * Transaction ID:* ${transactionId} \n\nThank you for choosing Spiritual Homeopathy! For queries, visit www.spiritualhomeo.com or call + 91 9177 1800 11.`;
+PatientProfile.js:760: patientName: patient.fullName || 'Patient',
+PatientProfile.js:872: patientName: patient.fullName || 'Walk-in Patient',
+PatientProfile.js:873: regId: patient.registrationId || patient.regId || patient.regID || '',
+PatientProfile.js:874: registrationId: patient.registrationId || patient.regId || patient.regID || '',
+PatientProfile.js:909: title: isSplitPayment ? '💰 Split Payment Requested' : '💳 Fee Payment Requested',
+PatientProfile.js:965: title: (paymentMethod === 'app_split' || paymentMethod === 'split_upi_app') ? '💰 Split Payment Requested' : '💳 Fee Payment Requested',
+PatientProfile.js:1094: const patientNameVal = patient.fullName || 'Patient';
+PatientProfile.js:1102: fullName: patientNameVal,
+PatientProfile.js:1118: patientName: patientNameVal,
+PatientProfile.js:1130: patientName: patientNameVal,
+PatientProfile.js:1148: patientName: patient.fullName || 'Walk-in Patient',
+PatientProfile.js:1149: regId: patient.registrationId || patient.regId || patient.regID || '',
+PatientProfile.js:1150: registrationId: patient.registrationId || patient.regId || patient.regID || '',
+PatientProfile.js:1167: patientName: patient.fullName || 'Walk-in Patient',
+PatientProfile.js:1168: regId: patient.registrationId || patient.regId || patient.regID || '',
+PatientProfile.js:1169: registrationId: patient.registrationId || patient.regId || patient.regID || '',
+PatientProfile.js:1186: patientName: patient.fullName || 'Walk-in Patient',
+PatientProfile.js:1187: regId: patient.registrationId || patient.regId || patient.regID || '',
+PatientProfile.js:1188: registrationId: patient.registrationId || patient.regId || patient.regID || '',
+PatientProfile.js:1206: `Collected ₹${feeAmount} from ${patient.fullName || 'Walk-in Patient'} via ${paymentMethod.toUpperCase()} (${patient.branchName || 'Unknown'}).`,
+PatientProfile.js:1209: patientName: patient.fullName || 'Walk-in Patient',
+PatientProfile.js:1224: fullName: patient.fullName || 'Online Patient',
+PatientProfile.js:1227: registrationId: patient.regId || 'ONLINE',
+PatientProfile.js:1307: fullName: appt.patientName || 'Online Patient',
+PatientProfile.js:1308: regId: 'ONLINE',
+PatientProfile.js:1591: title: asset.fileName || fileName,
+PatientProfile.js:1975: const initials = patient?.fullName
+PatientProfile.js:1976: ? patient.fullName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
+PatientProfile.js:1994: {/* ── Header ─────────────────────────────────────────── */}
+PatientProfile.js:2026: <Text style={s.heroName}>{patient?.fullName}</Text>
+PatientProfile.js:2062: {patient?.regId ? (
+PatientProfile.js:2063: <Text style={s.heroRegId}>ID: {patient.regId}</Text>
+PatientProfile.js:2132: <SectionHead title="Diagnosis Notes" icon={FileText} color="#7c3aed" />
+PatientProfile.js:2149: <SectionHead title="Prescribed Medicines" icon={Clipboard} color={COLORS.success} />
+PatientProfile.js:2165: <SectionHead title="Uploaded Images & Files" icon={ImageIcon} color="#db2777" />
+PatientProfile.js:2200: <SectionHead title="Shared Media & Education" icon={FolderOpen} color="#8b5cf6" />
+PatientProfile.js:2296: <Text style={{ fontSize: 12, fontWeight: '600', color: COLORS.text, flex: 1 }} numberOfLines={1}>{item.title}</Text>
+PatientProfile.js:2335: <Text style={{ fontSize: 12, fontWeight: '600', color: COLORS.text, flex: 1 }} numberOfLines={1}>{item.title}</Text>
+PatientProfile.js:2423: <Text style={{ fontSize: 12, color: COLORS.text, flex: 1 }} numberOfLines={1}>{item.title}</Text>
+PatientProfile.js:2458: <Text style={{ fontSize: 12, color: COLORS.text }} numberOfLines={1}>{item.title}</Text>
+PatientProfile.js:2490: <SectionHead title={`Visit History (${visits.length})`} icon={Calendar} color={COLORS.primary} />
+PatientProfile.js:2805: <Text style={{ fontSize: 12, color: COLORS.muted, fontWeight: '600' }}>Patient: <Text style={{ color: COLORS.text, fontWeight: '700' }}>{patient?.fullName}</Text></Text>
+PatientProfile.js:3087: const notifBody = `Collect ₹${proposedDiscountAmt} (instead of ₹${origFee}) for ${patient?.fullName || 'Patient'}.`;
+PatientProfile.js:3152: <PaperMenu.Item key={opt} onPress={() => { setPrescriptionDuration(opt); setOpenDurationMenuIndex(null); }} title={opt} titleStyle={{ fontSize: 13, color: COLORS.text }} />
+PatientProfile.js:3426: // Header

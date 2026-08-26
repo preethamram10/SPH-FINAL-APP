@@ -1,0 +1,1299 @@
+Line 521:   useEffect(() => {
+522:     const handleClickOutside = (event) => {
+523:       if (containerRef.current && !containerRef.current.contains(event.target)) {
+524:         setIsOpen(false);
+525:       }
+526:     };
+527:     document.addEventListener('mousedown', handleClickOutside);
+528:     return () => document.removeEventListener('mousedown', handleClickOutside);
+529:   }, []);
+----------------------------------------
+Line 838:   useEffect(() => {
+839:     if (userData?.role === 'staff') {
+840:       setActiveTab('daily-report');
+841:     }
+842:   }, [userData]);
+----------------------------------------
+Line 844:   useEffect(() => {
+845:     if (userData?.role !== 'staff') {
+846:       localStorage.setItem('receptionActiveTab', activeTab);
+847:     }
+848:   }, [activeTab, userData]);
+----------------------------------------
+Line 997:   useEffect(() => {
+998:     setPatientsCurrentPage(1);
+999:   }, [searchQuery]);
+----------------------------------------
+Line 1001:   useEffect(() => {
+1002:     if (!userData?.branchId || userData?.role !== 'receptionist') return;
+1003: 
+1004:     const today = new Date();
+1005:     const monthKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+1006:     const year = today.getFullYear();
+1007:     const month = today.getMonth() + 1;
+1008: 
+1009:     const targetsRef = collection(db, 'monthly_targets');
+1010:     const qTarget = query(targetsRef, where('month', '==', monthKey), where('branchId', '==', userData.branchId));
+1011: 
+1012:     let u1, u2, u3, u4;
+1013: 
+1014:     const unsubscribeTarget = onSnapshot(qTarget, (snapshot) => {
+1015:       if (!snapshot.empty) {
+1016:         const targetDocData = snapshot.docs[0].data();
+1017:         setMonthlyTarget(targetDocData.target);
+1018:         setTargetReached(targetDocData.reached || 0);
+1019:         const branchId = userData.branchId;
+1020:         const branchName = targetDocData.branchName;
+1021: 
+1022:         // Start dynamic Grand Total calculation identical to Admin
+1023:         const parseD = (raw) => {
+1024:           if (!raw) return null;
+1025:           if (raw.toDate) return raw.toDate();
+1026:           if (raw.seconds) return new Date(raw.seconds * 1000);
+1027:           if (typeof raw === 'string') {
+1028:             const parts = raw.split(/[-/]/);
+1029:             if (parts.length === 3) {
+1030:               if (parts[2].length === 4) {
+1031:                 return new Date(`${parts[2]}-${parts[1]}-${parts[0]}T12:00:00Z`);
+1032:               }
+1033:             }
+1034:           }
+1035:           const d = new Date(raw); return isNaN(d.getTime()) ? null : d;
+1036:         };
+1037:         const matchesYM = (dateVal) => {
+1038:           const d = parseD(dateVal);
+1039:           if (!d) return false;
+1040:           return d.getFullYear() === year && (d.getMonth() + 1) === month;
+1041:         };
+1042:         const isBranchMatchHelper = (itemBranchId, itemBranchName) => {
+1043:           if (!branchId || branchId === 'all') return true;
+1044:           const normalize = (val) => {
+1045:             if (!val) return '';
+1046:             const str = val.toLowerCase().trim();
+1047:             if (str.includes('kphb')) return 'kphb';
+1048:             if (str.includes('chnr') || str.includes('chandanagar') || str.includes('chandnagar')) return 'chandnagar';
+1049:             if (str.includes('dsnr') || str.includes('dilsukhnagar') || str.includes('dilshuknagar')) return 'dilshuknagar';
+1050:             if (str.includes('nallagandla')) return 'nallagandla';
+1051:             return str.replace(/\s*branch\s*/i, '').trim();
+1052:           };
+1053:           const n1 = normalize(itemBranchId);
+1054:           const n2 = normalize(itemBranchName);
+1055:           const n3 = normalize(branchId);
+1056:           const n4 = normalize(branchName);
+1057:           return n1 === n3 || n1 === n4 || n2 === n3 || n2 === n4 || itemBranchId === branchId || itemBranchName === branchName;
+1058:         };
+1059:         const getExactAmt = (p) => {
+1060:           if (p.paymentAmount !== undefined && p.paymentAmount !== null && p.paymentAmount !== '') return Number(p.paymentAmount);
+1061:           if (p.amountPaid !== undefined && p.amountPaid !== null && p.amountPaid !== '') return Number(p.amountPaid);
+1062:           if (p.itemsPaid?.consultation !== undefined) return Number(p.itemsPaid.consultation);
+1063:           return 0;
+1064:         };
+1065: 
+1066:         let txs = [];
+1067:         const recalc = () => {
+1068:           let total = 0;
+1069: 
+1070:           txs.forEach(t => {
+1071:             if (isBranchMatchHelper(t.branchId, t.branchName || t.branch) && matchesYM(t.timestamp || t.createdAt)) {
+1072:               const tType = (t.type || '').toLowerCase();
+1073:               const isAllowed = tType.includes('consultation') ||
+1074:                                 tType.includes('medicine') ||
+1075:                                 tType.includes('pharmacy') ||
+1076:                                 tType.includes('product') ||
+1077:                                 tType.includes('nutrition') ||
+1078:                                 tType.includes('diet') ||
+1079:                                 tType.includes('package');
+1080:               if (isAllowed) {
+1081:                 total += (Number(t.amount) || 0);
+1082:               }
+1083:             }
+1084:           });
+1085: 
+1086:           setTargetReached(total);
+1087:         };
+1088: 
+1089:         u3 = onSnapshot(collection(db, 'alltransactions'), s => { txs = s.docs.map(d => ({ id: d.id, ...d.data() })); recalc(); }, (error) => {
+1090:           console.error("Error recalculated transactions target:", error);
+1091:         });
+1092: 
+1093:       } else {
+1094:         setMonthlyTarget(null);
+1095:         setTargetReached(0);
+1096:       }
+1097:     });
+1098: 
+1099:     return () => {
+1100:       unsubscribeTarget();
+1101:       if (u3) u3();
+1102:     };
+1103:   }, [userData?.branchId, userData?.role]);
+----------------------------------------
+Line 1105:   useEffect(() => {
+1106:     if (!selectedNutritionPlan) return;
+1107:     const h = parseFloat(editNutritionHeight) / 100;
+1108:     const w = parseFloat(editNutritionWeight);
+1109:     if (h > 0 && w > 0) {
+1110:       setEditNutritionBmi((w / (h * h)).toFixed(1));
+1111:     } else {
+1112:       setEditNutritionBmi(0);
+1113:     }
+1114:   }, [editNutritionHeight, editNutritionWeight, selectedNutritionPlan]);
+----------------------------------------
+Line 1116:   useEffect(() => {
+1117:     if (!selectedNutritionPlan) return;
+1118:     let avoid = [];
+1119:     let eat = [];
+1120: 
+1121:     if (editNutritionDisorders.includes("Sugar (Diabetes)")) {
+1122:       avoid.push("Refined sugar, sweets, white bread, white rice, potatoes, sweet fruits (mango, sapota, banana).");
+1123:       eat.push("Bitter gourd (Karela), fenugreek (Methi) seeds, cinnamon, jamun, raw vegetables, millets, brown rice.");
+1124:     }
+1125:     if (editNutritionDisorders.includes("High BP (Hypertension)")) {
+1126:       avoid.push("High-salt foods, pickles, papad, processed cheese, bakery items, canned food, salted chips.");
+1127:       eat.push("Coconut water, bananas, leafy green vegetables, garlic, watermelon, skimmed milk, low-sodium meals.");
+1128:     }
+1129:     if (editNutritionDisorders.includes("Thyroid")) {
+1130:       avoid.push("Raw cabbage, raw cauliflower, raw broccoli, raw soy nuggets, raw tofu.");
+1131:       eat.push("Cooked vegetables, iodine-rich foods, zinc-rich foods.");
+1132:     }
+1133: 
+1134:     if (editNutritionDeficiencies.includes("Iron")) {
+1135:       eat.push("Iron-rich: Palak, beetroot, pomegranate, dates, sesame seeds, lentils, green leafy vegetables.");
+1136:     }
+1137:     if (editNutritionDeficiencies.includes("Calcium")) {
+1138:       eat.push("Calcium-rich: Ragi, milk, yogurt, paneer, tofu, almonds, sesame seeds.");
+1139:     }
+1140:     if (editNutritionDeficiencies.includes("Vitamin D")) {
+1141:       eat.push("Vitamin D-rich: Mushrooms, egg yolks, fortified milk, cheese.");
+1142:     }
+1143:     if (editNutritionDeficiencies.includes("Vitamin C")) {
+1144:       eat.push("Vitamin C-rich: Amla, oranges, lemons, sweet lime, guavas, bell peppers.");
+1145:     }
+1146: 
+1147:     setEditNutritionAvoid(avoid.join("\n"));
+1148:     setEditNutritionEat(eat.join("\n"));
+1149:   }, [editNutritionDisorders, editNutritionDeficiencies, selectedNutritionPlan]);
+----------------------------------------
+Line 1238:   useEffect(() => {
+1239:     if (rescheduleBranch && rescheduleDate && doctors.length > 0) {
+1240:       const checkDate = new Date(rescheduleDate);
+1241:       if (!isNaN(checkDate.getTime())) {
+1242:         const filtered = doctors.filter(docObj => isDoctorScheduledAtBranchOnDate(docObj, rescheduleBranch, checkDate));
+1243:         if (filtered.length > 0) {
+1244:           const isCurrentDocValid = filtered.some(docObj => docObj.name.toLowerCase() === rescheduleDoctor.toLowerCase());
+1245:           if (!isCurrentDocValid) {
+1246:             setRescheduleDoctor(filtered[0].name);
+1247:             setRescheduleTime('');
+1248:           }
+1249:         }
+1250:       }
+1251:     }
+1252:   }, [rescheduleBranch, rescheduleDate, doctors]);
+----------------------------------------
+Line 1299:   useEffect(() => {
+1300:     const unsubFolders = onSnapshot(collection(db, 'media_folders'), (snap) => {
+1301:       const list = [];
+1302:       snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+1303:       setMediaFolders(list);
+1304:     });
+1305: 
+1306:     const unsubItems = onSnapshot(collection(db, 'media_items'), (snap) => {
+1307:       const list = [];
+1308:       snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+1309:       setMediaItems(list);
+1310:     });
+1311: 
+1312:     return () => {
+1313:       unsubFolders();
+1314:       unsubItems();
+1315:     };
+1316:   }, []);
+----------------------------------------
+Line 1319:   useEffect(() => {
+1320:     if (!selectedPatientFile || consultationSubTab !== 'nutrition') {
+1321:       return;
+1322:     }
+1323: 
+1324:     // Filter plans for this patient using clean phone matching
+1325:     const cleanPatientFilePhone = (selectedPatientFile.phone || '').replace(/\D/g, '').slice(-10);
+1326:     const patientPlans = nutritionPlans.filter(p => {
+1327:       const cleanPlanPhone = (p.patientPhone || '').replace(/\D/g, '').slice(-10);
+1328:       return p.patientId === selectedPatientFile.id ||
+1329:         p.patientId === selectedPatientFile.patientId ||
+1330:         (cleanPatientFilePhone && cleanPatientFilePhone === cleanPlanPhone);
+1331:     });
+1332: 
+1333:     // Sort by createdAt descending
+1334:     patientPlans.sort((a, b) => {
+1335:       const ta = a.createdAt?.seconds || 0;
+1336:       const tb = b.createdAt?.seconds || 0;
+1337:       return tb - ta;
+1338:     });
+1339: 
+1340:     // If selectedNutritionPlan is already set and matches this patient, do nothing to prevent overwriting user edits
+1341:     if (selectedNutritionPlan) {
+1342:       const cleanSelPlanPhone = (selectedNutritionPlan.patientPhone || '').replace(/\D/g, '').slice(-10);
+1343:       const isSamePatient =
+1344:         (cleanPatientFilePhone && cleanSelPlanPhone === cleanPatientFilePhone) ||
+1345:         selectedNutritionPlan.patientId === selectedPatientFile.id ||
+1346:         selectedNutritionPlan.patientId === selectedPatientFile.patientId;
+1347:       if (isSamePatient) {
+1348:         return;
+1349:       }
+1350:     }
+1351: 
+1352:     if (patientPlans.length > 0) {
+1353:       // Auto-load the latest plan
+1354:       const latestPlan = patientPlans[0];
+1355:       setSelectedNutritionPlan(latestPlan);
+1356:       setEditNutritionAge(latestPlan.age || selectedPatientFile.age || '30');
+1357:       setEditNutritionHeight(latestPlan.height || selectedPatientFile.height || '');
+1358:       setEditNutritionWeight(latestPlan.weight || selectedPatientFile.weight || '');
+1359:       setEditNutritionBmi(latestPlan.bmi || 0);
+1360:       setEditNutritionAmount(latestPlan.amount || '500');
+1361:       setEditNutritionDeficiencies(latestPlan.deficiencies || []);
+1362:       setEditNutritionDisorders(Array.isArray(latestPlan.disorders) ? latestPlan.disorders : []);
+1363:       setEditNutritionOtherDiseases(latestPlan.diseases || '');
+1364:       setEditNutritionSymptoms(latestPlan.symptoms || '');
+1365:       setEditNutritionAvoid(latestPlan.foodsToAvoid || '');
+1366:       setEditNutritionEat(latestPlan.foodsToEat || '');
+1367:       setEditNutritionMeals(latestPlan.meals || []);
+1368:     } else {
+1369:       // Auto-initialize a new plan prefilled with patient vitals
+1370:       const ageVal = parseInt(selectedPatientFile.age || '30', 10) || 30;
+1371:       const initialMeals = generatePrefilledDiet(ageVal, [], []);
+1372:       const newPlan = {
+1373:         isNew: true,
+1374:         patientId: selectedPatientFile.id || selectedPatientFile.patientId,
+1375:         patientName: selectedPatientFile.fullName,
+1376:         patientPhone: selectedPatientFile.phone,
+1377:         age: selectedPatientFile.age || '30',
+1378:         height: selectedPatientFile.height || '',
+1379:         weight: selectedPatientFile.weight || '',
+1380:         bmi: 0,
+1381:         amount: '500',
+1382:         deficiencies: [],
+1383:         disorders: [],
+1384:         diseases: '',
+1385:         symptoms: '',
+1386:         foodsToAvoid: '',
+1387:         foodsToEat: '',
+1388:         meals: initialMeals,
+1389:       };
+1390:       setSelectedNutritionPlan(newPlan);
+1391:       setEditNutritionAge(newPlan.age);
+1392:       setEditNutritionHeight(newPlan.height);
+1393:       setEditNutritionWeight(newPlan.weight);
+1394:       setEditNutritionBmi(0);
+1395:       setEditNutritionAmount('500');
+1396:       setEditNutritionDeficiencies([]);
+1397:       setEditNutritionDisorders([]);
+1398:       setEditNutritionOtherDiseases('');
+1399:       setEditNutritionSymptoms('');
+1400:       setEditNutritionAvoid('');
+1401:       setEditNutritionEat('');
+1402:       setEditNutritionMeals(initialMeals);
+1403:     }
+1404:   }, [selectedPatientFile, consultationSubTab, nutritionPlans]);
+----------------------------------------
+Line 1407:   useEffect(() => {
+1408:     if (!selectedPatientFile) {
+1409:       setPatientPackage(null);
+1410:       return;
+1411:     }
+1412:     const cleanPhone = (selectedPatientFile.phone || '').replace(/\D/g, '').slice(-10);
+1413:     const pkgId = selectedPatientFile.packageId || (cleanPhone ? activePackageMap.get(cleanPhone) : null);
+1414:     if (pkgId) {
+1415:       const fetchPackage = async () => {
+1416:         try {
+1417:           const docRef = doc(db, 'package_members', pkgId);
+1418:           const snap = await getDoc(docRef);
+1419:           if (snap.exists()) {
+1420:             setPatientPackage({ id: snap.id, ...snap.data() });
+1421:           } else {
+1422:             setPatientPackage(null);
+1423:           }
+1424:         } catch (error) {
+1425:           console.error("Error fetching package details on receptionist web:", error);
+1426:           setPatientPackage(null);
+1427:         }
+1428:       };
+1429:       fetchPackage();
+1430:     } else {
+1431:       setPatientPackage(null);
+1432:     }
+1433:   }, [selectedPatientFile, activePackageMap]);
+----------------------------------------
+Line 1436:   useEffect(() => {
+1437:     if (!selectedNutritionPlan || selectedNutritionPlan.paymentStatus === 'paid') {
+1438:       return;
+1439:     }
+1440:     // If it's an existing plan and already has meals loaded, do not overwrite them
+1441:     if (!selectedNutritionPlan.isNew && editNutritionMeals && editNutritionMeals.length > 0) {
+1442:       return;
+1443:     }
+1444:     const ageVal = parseInt(editNutritionAge, 10) || 30;
+1445:     const meals = generatePrefilledDiet(ageVal, editNutritionDeficiencies, editNutritionDisorders);
+1446:     setEditNutritionMeals(meals);
+1447:   }, [editNutritionAge, editNutritionDeficiencies, editNutritionDisorders, selectedNutritionPlan?.isNew]);
+----------------------------------------
+Line 1450:   useEffect(() => {
+1451:     if (!selectedPatientFile || !selectedPatientFile.phone) {
+1452:       setPatientSharedItems([]);
+1453:       setPatientPrivateFolders([]);
+1454:       return;
+1455:     }
+1456:     const cleanPhone = selectedPatientFile.phone.replace(/\D/g, '').slice(-10);
+1457:     if (cleanPhone.length !== 10) return;
+1458: 
+1459:     const qShared = query(collection(db, 'shared_media'), where('patientPhone', '==', cleanPhone));
+1460:     const unsubShared = onSnapshot(qShared, (snap) => {
+1461:       const list = [];
+1462:       snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+1463:       setPatientSharedItems(list);
+1464:     });
+1465: 
+1466:     const qFolders = query(collection(db, 'media_folders'), where('patientPhone', '==', cleanPhone));
+1467:     const unsubFolders = onSnapshot(qFolders, (snap) => {
+1468:       const list = [];
+1469:       snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+1470:       setPatientPrivateFolders(list);
+1471:     });
+1472: 
+1473:     return () => {
+1474:       unsubShared();
+1475:       unsubFolders();
+1476:     };
+1477:   }, [selectedPatientFile]);
+----------------------------------------
+Line 1699:   useEffect(() => {
+1700:     if (userData) {
+1701:       const defaultB = userData.branchName || userData.branchId || 'KPHB';
+1702:       const resolvedB = getBranchName(defaultB);
+1703:       const isDocId = (val) => typeof val === 'string' && /^[A-Za-z0-9]{20,}$/.test(val);
+1704: 
+1705:       if (!patientForm.branch || isDocId(patientForm.branch)) {
+1706:         if (resolvedB && resolvedB !== patientForm.branch) {
+1707:           setPatientForm(prev => ({
+1708:             ...prev,
+1709:             branch: resolvedB
+1710:           }));
+1711:         }
+1712:       }
+1713:     }
+1714:   }, [userData, branches, patientForm.branch]);
+----------------------------------------
+Line 1756:   useEffect(() => {
+1757:     if (!patientForm.doctor || !patientForm.branch || !patientForm.appointmentDate) {
+1758:       setAvailableSlots([]);
+1759:       return;
+1760:     }
+1761: 
+1762:     setFetchingSlots(true);
+1763:     let unsubAppointments = null;
+1764: 
+1765:     const setupRealtimeSlots = async () => {
+1766:       try {
+1767:         const dateString = patientForm.appointmentDate;
+1768:         const docObj = doctors.find(d => d.name === patientForm.doctor);
+1769:         const doctorId = docObj?.id || patientForm.doctor;
+1770: 
+1771:         const today = new Date();
+1772:         const year = today.getFullYear();
+1773:         const month = String(today.getMonth() + 1).padStart(2, '0');
+1774:         const day = String(today.getDate()).padStart(2, '0');
+1775:         const todayString = `${year}-${month}-${day}`;
+1776:         const isSelectedDateToday = dateString === todayString;
+1777:         const currentMinutes = today.getHours() * 60 + today.getMinutes();
+1778: 
+1779:         const parseTimeToMinutes = (timeStr) => {
+1780:           const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM)/i);
+1781:           if (!match) return 0;
+1782:           let hours = parseInt(match[1], 10);
+1783:           const minutes = parseInt(match[2], 10);
+1784:           const ampm = match[3].toUpperCase();
+1785:           if (ampm === 'PM' && hours < 12) hours += 12;
+1786:           if (ampm === 'AM' && hours === 12) hours = 0;
+1787:           return hours * 60 + minutes;
+1788:         };
+1789: 
+1790:         // Fetch Doctor No Shows once (doesn't need to be strictly real-time)
+1791:         const qNoShows = query(
+1792:           collection(db, 'doctor_no_shows'),
+1793:           where('doctorId', '==', doctorId)
+1794:         );
+1795:         const snapNoShows = await getDocs(qNoShows);
+1796:         const activeNoShows = [];
+1797:         const normFormBranch = (patientForm.branch || '').toLowerCase().replace(/\s*branch\s*/i, '').trim();
+1798:         snapNoShows.forEach(docSnap => {
+1799:           const ns = docSnap.data();
+1800:           const nsBranch = (ns.branchName || ns.branchId || '').toLowerCase().replace(/\s*branch\s*/i, '').trim();
+1801:           if (nsBranch === normFormBranch) {
+1802:             activeNoShows.push(ns);
+1803:           }
+1804:         });
+1805: 
+1806:         // Real-time listener for appointments on that specific date
+1807:         // Query appointments collection and filter by branch in memory, matching mobile app logic exactly
+1808:         const qAppts = query(
+1809:           collection(db, 'allpatients'),
+1810:           where('doctorId', '==', doctorId),
+1811:           where('dateString', '==', dateString)
+1812:         );
+1813:         const qExtra = query(
+1814:           collection(db, 'extra_slots'),
+1815:           where('doctorId', '==', doctorId),
+1816:           where('dateString', '==', dateString)
+1817:         );
+1818: 
+1819:         let latestCounts = {};
+1820:         let latestExtraSlots = [];
+1821: 
+1822:         const updateCombinedList = () => {
+1823:           const generatedList = generateSlotsForSelected(patientForm.doctor, docObj, patientForm.branch, patientForm.appointmentDate);
+1824:           const existingDbSlots = Object.keys(latestCounts).filter(t => t && t !== 'null' && t !== 'undefined');
+1825:           const combinedList = [...new Set([...generatedList, ...existingDbSlots, ...latestExtraSlots])];
+1826: 
+1827:           combinedList.sort((a, b) => {
+1828:             const parseToMin = (t) => {
+1829:               const m = t.match(/(\d+):(\d+)\s*(AM|PM)/i);
+1830:               if (!m) return 0;
+1831:               let h = parseInt(m[1], 10), min = parseInt(m[2], 10);
+1832:               if (m[3].toUpperCase() === 'PM' && h < 12) h += 12;
+1833:               if (m[3].toUpperCase() === 'AM' && h === 12) h = 0;
+1834:               return h * 60 + min;
+1835:             };
+1836:             return parseToMin(a) - parseToMin(b);
+1837:           });
+1838: 
+1839:           const slotsWithAvailability = combinedList.map(time => {
+1840:             const booked = latestCounts[time] || 0;
+1841:             const sessionsLeft = 3 - booked;
+1842:             const isPastSlot = isSelectedDateToday && parseTimeToMinutes(time) <= currentMinutes;
+1843:             const isNoShowBlocked = isSlotBlockedByNoShow(time, dateString, activeNoShows);
+1844:             const isFull = booked >= 3;
+1845:             return {
+1846:               time,
+1847:               bookedCount: booked,
+1848:               sessionsLeft: sessionsLeft > 0 ? sessionsLeft : 0,
+1849:               isAvailable: !isPastSlot && !isNoShowBlocked,
+1850:               isFull: isFull,
+1851:               isBlockedByNoShow: isNoShowBlocked,
+1852:               isExtra: !generatedList.includes(time) && booked === 0
+1853:             };
+1854:           });
+1855: 
+1856:           setAvailableSlots(slotsWithAvailability);
+1857:           setFetchingSlots(false);
+1858:         };
+1859: 
+1860:         const unsubAppointmentsReal = onSnapshot(qAppts, (snapshot) => {
+1861:           const bookings = snapshot.docs.map(doc => doc.data());
+1862:           const counts = {};
+1863:           const targetBranch = normalizeBranchName(patientForm.branch);
+1864: 
+1865:           bookings.forEach(b => {
+1866:             if (b.status === 'cancelled') return;
+1867:             const bBranch = normalizeBranchName(b.branchName || b.branchId);
+1868:             if (bBranch === targetBranch) {
+1869:               const slotKey = b.timeSlot || b.appointmentTime;
+1870:               if (slotKey) {
+1871:                 counts[slotKey] = (counts[slotKey] || 0) + 1;
+1872:               }
+1873:             }
+1874:           });
+1875:           latestCounts = counts;
+1876:           updateCombinedList();
+1877:         }, (error) => {
+1878:           console.error("Error setting up slots listener:", error);
+1879:           setFetchingSlots(false);
+1880:         });
+1881: 
+1882:         const unsubExtraReal = onSnapshot(qExtra, (snapshot) => {
+1883:           let slots = [];
+1884:           const targetBranch = normalizeBranchName(patientForm.branch);
+1885:           snapshot.forEach(docSnap => {
+1886:             const data = docSnap.data();
+1887:             const bBranch = normalizeBranchName(data.branchName || data.branchId);
+1888:             if (bBranch === targetBranch && data.slots) {
+1889:               slots = [...slots, ...data.slots];
+1890:             }
+1891:           });
+1892:           latestExtraSlots = slots;
+1893:           updateCombinedList();
+1894:         });
+1895: 
+1896:         unsubAppointments = () => {
+1897:           unsubAppointmentsReal();
+1898:           unsubExtraReal();
+1899:         };
+1900: 
+1901:       } catch (err) {
+1902:         console.error("Error fetching no-shows or setting up listener:", err);
+1903:         setFetchingSlots(false);
+1904:       }
+1905:     };
+1906: 
+1907:     setupRealtimeSlots();
+1908: 
+1909:     return () => {
+1910:       if (unsubAppointments) unsubAppointments();
+1911:     };
+1912:   }, [patientForm.doctor, patientForm.branch, patientForm.appointmentDate, doctors]);
+----------------------------------------
+Line 2064:   useEffect(() => {
+2065:     let unsubUnlock;
+2066:     let cancelled = false;
+2067: 
+2068:     if (selectedBill) {
+2069:       // ── Fee resolution (sync, no Firestore) ──────────────────────────────
+2070:       const followUpDate = selectedBill?.raw?.followUpDate || selectedBill?.followUpDate;
+2071:       const inDuration = checkIsInDuration(followUpDate);
+2072:       const doctorExplicitlySetConsultFee = selectedBill?.consultationFee !== undefined && selectedBill?.consultationFee !== null;
+2073:       const docConsultFee = doctorExplicitlySetConsultFee ? Number(selectedBill.consultationFee) : null;
+2074:       const docMedFee = selectedBill?.medicineFeeRequested !== undefined && selectedBill?.medicineFeeRequested !== null ? Number(selectedBill.medicineFeeRequested) : 0;
+2075: 
+2076:       const itemsPaidFromDoc = selectedBill?.itemsPaid || selectedBill?.raw?.itemsPaid || null;
+2077:       const itemsConsultFee = itemsPaidFromDoc?.consultation !== undefined ? Number(itemsPaidFromDoc.consultation) : null;
+2078:       const itemsMedFee = itemsPaidFromDoc?.medicine !== undefined ? Number(itemsPaidFromDoc.medicine) : 0;
+2079:       const itemsDietFee = itemsPaidFromDoc?.dietPlan !== undefined ? Number(itemsPaidFromDoc.dietPlan) : 0;
+2080: 
+2081:       const resolvedConsultFee = docConsultFee !== null ? docConsultFee : (itemsConsultFee !== null ? itemsConsultFee : (selectedBill?.paymentAmount ? Number(selectedBill.paymentAmount) : 0));
+2082:       const resolvedMedFee = docMedFee > 0 ? docMedFee : (itemsMedFee > 0 ? itemsMedFee : 0);
+2083: 
+2084:       // Set initial billingMode
+2085:       if (inDuration) {
+2086:         if (resolvedMedFee > 0) {
+2087:           setBillingMode('medicine_only');
+2088:         } else {
+2089:           setBillingMode('consultation_only');
+2090:         }
+2091:       } else {
+2092:         if (resolvedConsultFee > 0 && resolvedMedFee > 0) {
+2093:           setBillingMode('split');
+2094:         } else if (resolvedConsultFee === 0 && resolvedMedFee > 0) {
+2095:           setBillingMode('medicine_only');
+2096:         } else {
+2097:           setBillingMode('consultation_only');
+2098:         }
+2099:       }
+2100: 
+2101:       // If itemsPaid already has a diet fee, apply it immediately as a placeholder
+2102:       if (itemsDietFee > 0) {
+2103:         setIncludeDiet(true);
+2104:         setDietFee(itemsDietFee);
+2105:         const activeConsultFee = inDuration ? 0 : resolvedConsultFee;
+2106:         const initialTotal = activeConsultFee + resolvedMedFee + itemsDietFee;
+2107:         setCustomFeeAmount(String(selectedBill.approvedAmount || (initialTotal > 0 ? initialTotal : '')));
+2108:       } else {
+2109:         setIncludeDiet(false);
+2110:         setDietFee(0);
+2111:         const activeConsultFee = inDuration ? 0 : resolvedConsultFee;
+2112:         const initialTotal = activeConsultFee + resolvedMedFee;
+2113:         setCustomFeeAmount(String(selectedBill.approvedAmount || (initialTotal > 0 ? initialTotal : '')));
+2114:       }
+2115: 
+2116:       setOnlinePaymentTab('counter');
+2117:       const defaultMethod = selectedBill.source === 'appointments' ? 'app' : 'cash';
+2118:       setPaymentLegs([{ method: defaultMethod, amount: '' }]);
+2119: 
+2120:       // ── Fresh Firestore query for pending diet plan ────────────────────────
+2121:       const fetchPendingDietPlan = async () => {
+2122:         try {
+2123:           const phone = (selectedBill.phone || '').replace(/\D/g, '').slice(-10);
+2124:           const billId = selectedBill.id;
+2125: 
+2126:           // Query by patientId (allpatients doc ID) AND by phone
+2127:           const queries = [];
+2128:           if (billId) queries.push(getDocs(query(collection(db, 'nutrition_plans'), where('patientId', '==', billId), where('paymentStatus', '==', 'pending'))));
+2129:           if (phone) queries.push(getDocs(query(collection(db, 'nutrition_plans'), where('patientPhone', '==', phone), where('paymentStatus', '==', 'pending'))));
+2130: 
+2131:           const snaps = await Promise.all(queries.map(q => q.catch(() => ({ docs: [] }))));
+2132:           if (cancelled) return;
+2133: 
+2134:           let pendingPlan = null;
+2135:           const seenIds = new Set();
+2136:           for (const snap of snaps) {
+2137:             for (const d of (snap.docs || [])) {
+2138:               if (!seenIds.has(d.id)) {
+2139:                 seenIds.add(d.id);
+2140:                 pendingPlan = { id: d.id, ...d.data() };
+2141:                 break;
+2142:               }
+2143:             }
+2144:             if (pendingPlan) break;
+2145:           }
+2146: 
+2147:           if (cancelled) return;
+2148:           if (pendingPlan) {
+2149:             const dietAmt = Number(pendingPlan.amount || 0);
+2150:             setIncludeDiet(true);
+2151:             setDietFee(dietAmt);
+2152:             setActiveDietPlanId(pendingPlan.id);
+2153:             // Recalculate total with diet fee
+2154:             const activeConsultFee = inDuration ? 0 : resolvedConsultFee;
+2155:             const newTotal = activeConsultFee + resolvedMedFee + dietAmt + (includePackage ? Number(packageFee || 0) : 0);
+2156:             setCustomFeeAmount(String(selectedBill.approvedAmount || (newTotal > 0 ? newTotal : '')));
+2157:             setPaymentLegs([{ method: defaultMethod, amount: String(selectedBill.approvedAmount || (newTotal > 0 ? newTotal : '')) }]);
+2158:           } else {
+2159:             setActiveDietPlanId(null);
+2160:           }
+2161:         } catch (err) {
+2162:           console.warn('[ReceptionDashboard] Error fetching pending diet plan:', err);
+2163:         }
+2164:       };
+2165: 
+2166:       fetchPendingDietPlan();
+2167: 
+2168:       // ── Fresh Firestore query for active package ───────────────────────────
+2169:       const fetchActivePackage = async () => {
+2170:         try {
+2171:           const phone = (selectedBill.phone || '').replace(/\D/g, '').slice(-10);
+2172:           if (!phone) return;
+2173: 
+2174:           const possiblePhones = [
+2175:             phone,
+2176:             `+91${phone}`,
+2177:             `+91 ${phone}`,
+2178:             selectedBill.phone
+2179:           ].filter(Boolean);
+2180:           const uniquePhones = Array.from(new Set(possiblePhones));
+2181: 
+2182:           const qPkg = query(
+2183:             collection(db, 'package_members'),
+2184:             where('patientMobile', 'in', uniquePhones)
+2185:           );
+2186:           const snapPkg = await getDocs(qPkg);
+2187:           if (cancelled) return;
+2188: 
+2189:           let activePkg = null;
+2190:           snapPkg.forEach(d => {
+2191:             const data = d.data();
+2192:             if (data.status === 'active') {
+2193:               activePkg = { id: d.id, ...data };
+2194:             }
+2195:           });
+2196: 
+2197:           if (cancelled) return;
+2198:           if (activePkg) {
+2199:             setPatientActivePackage(activePkg);
+2200:             const advPending = activePkg.advancePending !== undefined
+2201:               ? Number(activePkg.advancePending)
+2202:               : Number(activePkg.paidAmount || 0); // legacy: treat paidAmount as advance if field missing
+2203:             const bal = Number(activePkg.balanceAmount || 0);
+2204: 
+2205:             let isFirstVisit = advPending > 0;
+2206:             let currentPackageFee = isFirstVisit ? advPending : bal;
+2207:             let currentIncludePackage = isFirstVisit;
+2208: 
+2209:             setIncludePackage(currentIncludePackage);
+2210:             setPackageFee(currentPackageFee);
+2211: 
+2212:             // Recalculate total with package fee
+2213:             const activeConsultFee = inDuration ? 0 : resolvedConsultFee;
+2214:             const dietAmt = includeDiet ? Number(dietFee || 0) : 0;
+2215:             const packageFeeAmt = currentIncludePackage ? currentPackageFee : 0;
+2216:             const newTotal = activeConsultFee + resolvedMedFee + dietAmt + packageFeeAmt;
+2217:             setCustomFeeAmount(String(selectedBill.approvedAmount || (newTotal > 0 ? newTotal : '')));
+2218:             setPaymentLegs([{ method: defaultMethod, amount: String(selectedBill.approvedAmount || (newTotal > 0 ? newTotal : '')) }]);
+2219:           } else {
+2220:             setPatientActivePackage(null);
+2221:             setIncludePackage(false);
+2222:             setPackageFee(0);
+2223:           }
+2224:         } catch (err) {
+2225:           console.warn('[ReceptionDashboard] Error fetching active package:', err);
+2226:         }
+2227:       };
+2228: 
+2229:       fetchActivePackage();
+2230: 
+2231:       // ── Fresh Firestore query for historical pending amount from previous visits ────────────────────────
+2232:       const fetchHistoricalPending = async () => {
+2233:         try {
+2234:           const patientPhone = selectedBill.phone || selectedBill.patientPhone || selectedBill.phoneNumber || selectedBill.contactNumber || selectedBill.contact || '';
+2235:           if (!patientPhone) return;
+2236: 
+2237:           const qPending = query(
+2238:             collection(db, 'allpatients'),
+2239:             where('pendingAmount', '>', 0)
+2240:           );
+2241:           const snapPending = await getDocs(qPending);
+2242:           if (cancelled) return;
+2243: 
+2244:           let sum = 0;
+2245:           snapPending.forEach(d => {
+2246:             if (d.id !== selectedBill.id) {
+2247:               const docPhone = d.data().phone || d.data().patientPhone || d.data().phoneNumber || d.data().contactNumber || d.data().contact || '';
+2248:               if (isPhoneMatch(patientPhone, docPhone)) {
+2249:                 sum += Number(d.data().pendingAmount || 0);
+2250:               }
+2251:             }
+2252:           });
+2253: 
+2254:           setHistoricalPendingAmount(sum);
+2255:         } catch (err) {
+2256:           console.warn('[ReceptionDashboard] Error fetching historical pending amount:', err);
+2257:         }
+2258:       };
+2259: 
+2260:       fetchHistoricalPending();
+2261: 
+2262:       // ── Realtime listeners ─────────────────────────────────────────────────
+2263:       const qUnlock = query(
+2264:         collection(db, 'checkout_unlock_requests'),
+2265:         where('billId', '==', selectedBill.id)
+2266:       );
+2267:       unsubUnlock = onSnapshot(qUnlock, (snap) => {
+2268:         if (!snap.empty) {
+2269:           const list = [];
+2270:           snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+2271:           list.sort((a, b) => {
+2272:             const tA = a.createdAt?.toDate?.() || new Date(a.createdAt || 0);
+2273:             const tB = b.createdAt?.toDate?.() || new Date(b.createdAt || 0);
+2274:             return tB - tA;
+2275:           });
+2276:           setUnlockRequest(list[0]);
+2277:         } else {
+2278:           setUnlockRequest(null);
+2279:         }
+2280:       });
+2281: 
+2282:       const qAmt = query(
+2283:         collection(db, 'hr_amount_requests'),
+2284:         where('targetId', '==', selectedBill.id),
+2285:         where('status', '==', 'pending')
+2286:       );
+2287:       const unsubAmt = onSnapshot(qAmt, (snap) => {
+2288:         if (!snap.empty) {
+2289:           const list = [];
+2290:           snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+2291:           setPendingAmountRequest(list[0]);
+2292:         } else {
+2293:           setPendingAmountRequest(null);
+2294:         }
+2295:       });
+2296: 
+2297:       return () => {
+2298:         cancelled = true;
+2299:         if (unsubUnlock) unsubUnlock();
+2300:         if (unsubAmt) unsubAmt();
+2301:         setPatientActivePackage(null);
+2302:         setIncludePackage(false);
+2303:         setPackageFee(0);
+2304:       };
+2305:     } else {
+2306:       setIncludeConsultation(true);
+2307:       setConsultationFee('');
+2308:       setIncludeMedicine(false);
+2309:       setMedicineFee(0);
+2310:       setIncludeDiet(false);
+2311:       setDietFee(0);
+2312:       setPayLaterAmount('');
+2313:       setCounterMedicines([]);
+2314:       setCounterPrescriptionDuration('');
+2315:       setActiveDietPlanId(null);
+2316:       setPatientActivePackage(null);
+2317:       setIncludePackage(false);
+2318:       setPackageFee(0);
+2319:       setCustomFeeAmount('');
+2320:       setOnlinePaymentTab('counter');
+2321:       setPaymentLegs([{ method: 'cash', amount: '' }]);
+2322:       setUnlockRequest(null);
+2323:       setPendingAmountRequest(null);
+2324:       setHistoricalPendingAmount(0);
+2325:       setIncludePending(false);
+2326:     }
+2327:   }, [selectedBill]);
+----------------------------------------
+Line 2333:   useEffect(() => {
+2334:     if (selectedBill) {
+2335:       if (patientActivePackage) {
+2336:         setIncludeConsultation(false);
+2337:         setConsultationFee(0);
+2338:         setIncludeMedicine(false);
+2339:         setMedicineFee(0);
+2340:         return;
+2341:       }
+2342:       const followUpDate = selectedBill?.raw?.followUpDate || selectedBill?.followUpDate;
+2343:       const inDuration = checkIsInDuration(followUpDate);
+2344:       const currentTarget = inDuration ? docTargetMed : targetAmount;
+2345: 
+2346:       if (billingMode === 'consultation_only') {
+2347:         setIncludeConsultation(true);
+2348:         setConsultationFee(inDuration ? 0 : currentTarget);
+2349:         setIncludeMedicine(false);
+2350:         setMedicineFee(0);
+2351:       } else if (billingMode === 'medicine_only') {
+2352:         setIncludeConsultation(false);
+2353:         setConsultationFee(0);
+2354:         setIncludeMedicine(true);
+2355:         setMedicineFee(currentTarget);
+2356:       } else if (billingMode === 'split') {
+2357:         setIncludeConsultation(true);
+2358:         setIncludeMedicine(true);
+2359:         const expectedConsult = inDuration ? 0 : docTargetConsult;
+2360:         if (expectedConsult + docTargetMed === currentTarget) {
+2361:           setConsultationFee(expectedConsult);
+2362:           setMedicineFee(docTargetMed);
+2363:         } else {
+2364:           const half = Math.round(currentTarget / 2);
+2365:           setConsultationFee(inDuration ? 0 : half);
+2366:           setMedicineFee(inDuration ? currentTarget : currentTarget - half);
+2367:         }
+2368:       }
+2369:     }
+2370:   }, [billingMode, targetAmount, selectedBill, patientActivePackage]);
+----------------------------------------
+Line 2402:   useEffect(() => {
+2403:     let unsubAmtRequestNutri;
+2404:     if (selectedNutritionPayPlan) {
+2405:       const qAmt = query(
+2406:         collection(db, 'hr_amount_requests'),
+2407:         where('targetId', '==', selectedNutritionPayPlan.id),
+2408:         where('status', '==', 'pending')
+2409:       );
+2410:       unsubAmtRequestNutri = onSnapshot(qAmt, (snap) => {
+2411:         if (!snap.empty) {
+2412:           const list = [];
+2413:           snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+2414:           setPendingAmountRequest(list[0]);
+2415:         } else {
+2416:           setPendingAmountRequest(null);
+2417:         }
+2418:       });
+2419:     } else {
+2420:       if (!selectedBill) {
+2421:         setPendingAmountRequest(null);
+2422:       }
+2423:     }
+2424:     return () => {
+2425:       if (unsubAmtRequestNutri) unsubAmtRequestNutri();
+2426:     };
+2427:   }, [selectedNutritionPayPlan, selectedBill]);
+----------------------------------------
+Line 2440:   useEffect(() => {
+2441:     if (showPayModal && selectedBill) {
+2442:       const fetchPayFileDetails = async () => {
+2443:         setLoadingPayFile(true);
+2444:         try {
+2445:           const coll = selectedBill.source === 'appointments' ? 'appointments' : 'allpatients';
+2446:           const docRef = doc(db, coll, selectedBill.id);
+2447:           const docSnap = await getDoc(docRef);
+2448: 
+2449:           let patientData = null;
+2450:           if (docSnap.exists()) {
+2451:             patientData = { id: docSnap.id, ...docSnap.data() };
+2452:             setPayPatientDoc(patientData);
+2453:             setPayComplaint(patientData.complaint || patientData.subject || '');
+2454:             setPayNotes(patientData.receptionNotes || patientData.notes || '');
+2455:             const pdUrls = patientData.prescriptionUrls || (patientData.prescriptionUrl ? [patientData.prescriptionUrl] : []);
+2456:             if (patientData.diagnosisDrawingUrl && !pdUrls.includes(patientData.diagnosisDrawingUrl)) pdUrls.push(patientData.diagnosisDrawingUrl);
+2457:             setPayPrescriptionUrls(pdUrls);
+2458: 
+2459:             if (patientData.medicineFeeRequested !== selectedBill.medicineFeeRequested || patientData.consultationFee !== selectedBill.consultationFee) {
+2460:               setSelectedBill(prev => ({
+2461:                 ...prev,
+2462:                 medicineFeeRequested: patientData.medicineFeeRequested,
+2463:                 consultationFee: patientData.consultationFee
+2464:               }));
+2465:             }
+2466:           } else {
+2467:             setPayPatientDoc(selectedBill);
+2468:             setPayComplaint(selectedBill.complaint || selectedBill.subject || '');
+2469:             setPayNotes(selectedBill.receptionNotes || selectedBill.notes || '');
+2470:             const sbUrls = selectedBill.prescriptionUrls || (selectedBill.prescriptionUrl ? [selectedBill.prescriptionUrl] : []);
+2471:             if (selectedBill.diagnosisDrawingUrl && !sbUrls.includes(selectedBill.diagnosisDrawingUrl)) sbUrls.push(selectedBill.diagnosisDrawingUrl);
+2472:             setPayPrescriptionUrls(sbUrls);
+2473:           }
+2474: 
+2475:           const phone = patientData?.phone || selectedBill.phone;
+2476:           if (phone && phone !== 'N/A') {
+2477:             // Fetch history
+2478:             const visitsQuery = query(
+2479:               collection(db, selectedBill.source === 'appointments' ? 'appointments' : 'allpatients'),
+2480:               where('phone', '==', phone)
+2481:             );
+2482:             const visitSnap = await getDocs(visitsQuery);
+2483:             const history = [];
+2484:             visitSnap.forEach(d => {
+2485:               const data = d.data();
+2486:               if (data.status === 'completed' || data.status === 'done') {
+2487:                 history.push({ id: d.id, ...data });
+2488:               }
+2489:             });
+2490:             setPayHistory(history);
+2491: 
+2492:             // Fetch nutrition plans using clean phone matching
+2493:             const cleanPhoneVal = (phone || '').replace(/\D/g, '').slice(-10);
+2494:             const possiblePhones = [
+2495:               phone,
+2496:               cleanPhoneVal,
+2497:               `+91${cleanPhoneVal}`,
+2498:               `+91 ${cleanPhoneVal}`
+2499:             ].filter(Boolean);
+2500:             const uniquePhones = Array.from(new Set(possiblePhones));
+2501: 
+2502:             const nutriQuery = query(
+2503:               collection(db, 'nutrition_plans'),
+2504:               where('patientPhone', 'in', uniquePhones)
+2505:             );
+2506:             const nutriSnap = await getDocs(nutriQuery);
+2507:             const plans = [];
+2508:             nutriSnap.forEach(d => plans.push({ id: d.id, ...d.data() }));
+2509:             setPayNutritionPlans(plans);
+2510:           }
+2511:         } catch (err) {
+2512:           console.error("Error fetching pay file details:", err);
+2513:         } finally {
+2514:           setLoadingPayFile(false);
+2515:         }
+2516:       };
+2517:       fetchPayFileDetails();
+2518:     } else {
+2519:       setPayPatientDoc(null);
+2520:       setPayHistory([]);
+2521:       setPayNutritionPlans([]);
+2522:       setPayComplaint('');
+2523:       setPayNotes('');
+2524:       setPayPrescriptionUrls([]);
+2525:     }
+2526:   }, [showPayModal, selectedBill]);
+----------------------------------------
+Line 2611:   useEffect(() => {
+2612:     if (selectedBill && !selectedBill.amountLocked) {
+2613:       let total = (includeConsultation ? Number(consultationFee || 0) : 0) +
+2614:         (includeMedicine ? Number(medicineFee || 0) : 0) +
+2615:         (includeDiet ? Number(dietFee || 0) : 0) +
+2616:         (includePackage ? Number(packageFee || 0) : 0);
+2617: 
+2618:       if (includePending) {
+2619:         const prevPending = Number(selectedBill?.pendingAmount || 0);
+2620:         total += prevPending + historicalPendingAmount;
+2621:       }
+2622: 
+2623:       const plAmount = Number(payLaterAmount || 0);
+2624:       total = Math.max(0, total - plAmount);
+2625: 
+2626:       setCustomFeeAmount(String(total));
+2627:     }
+2628:   }, [includeConsultation, consultationFee, includeMedicine, medicineFee, includeDiet, dietFee, includePackage, packageFee, payLaterAmount, selectedBill, historicalPendingAmount, includePending]);
+----------------------------------------
+Line 2630:   useEffect(() => {
+2631:     setPaymentLegs(prev => {
+2632:       if (prev.length === 1 && String(prev[0].amount) !== String(customFeeAmount)) {
+2633:         return [{ ...prev[0], amount: String(customFeeAmount) }];
+2634:       }
+2635:       return prev;
+2636:     });
+2637:   }, [customFeeAmount]);
+----------------------------------------
+Line 2651:   useEffect(() => {
+2652:     fetchData();
+2653:     cleanupExpiredDietPDFs();
+2654:     return () => {
+2655:       cleanActiveListeners();
+2656:       if (pollingRef.current) {
+2657:         clearInterval(pollingRef.current);
+2658:       }
+2659:     };
+2660:   }, [userData]);
+----------------------------------------
+Line 2662:   useEffect(() => {
+2663:     if (userData?.branchId) {
+2664:       setPatientForm(prev => ({
+2665:         ...prev,
+2666:         branch: getBranchName(userData.branchId),
+2667:         appointmentDate: getTodayString()
+2668:       }));
+2669:     }
+2670:   }, [userData, branches]);
+----------------------------------------
+Line 2673:   useEffect(() => {
+2674:     const handler = setTimeout(() => {
+2675:       setDebouncedSearch(searchQuery);
+2676:     }, 500);
+2677:     return () => clearTimeout(handler);
+2678:   }, [searchQuery]);
+----------------------------------------
+Line 2681:   useEffect(() => {
+2682:     pageCursors.current = { 1: null };
+2683:     if (!debouncedSearch.trim()) {
+2684:       // When search is cleared, clear the list — don't auto-load all historical records
+2685:       setPatientsList([]);
+2686:       setHasNextPage(false);
+2687:       setPatientsCurrentPage(1);
+2688:       return;
+2689:     }
+2690:     loadPatientsPage(1);
+2691:   }, [debouncedSearch, patientsPerPage, userData]);
+----------------------------------------
+Line 2694:   useEffect(() => {
+2695:     const handleKeyDown = (e) => {
+2696:       if (lightboxIndex < 0 || lightboxImages.length === 0) return;
+2697:       if (e.key === 'ArrowRight') {
+2698:         setLightboxIndex((prev) => (prev + 1) % lightboxImages.length);
+2699:       } else if (e.key === 'ArrowLeft') {
+2700:         setLightboxIndex((prev) => (prev - 1 + lightboxImages.length) % lightboxImages.length);
+2701:       } else if (e.key === 'Escape') {
+2702:         setLightboxIndex(-1);
+2703:       }
+2704:     };
+2705:     window.addEventListener('keydown', handleKeyDown);
+2706:     return () => window.removeEventListener('keydown', handleKeyDown);
+2707:   }, [lightboxIndex, lightboxImages]);
+----------------------------------------
+Line 2724:   useEffect(() => {
+2725:     if (!userData) return;
+2726: 
+2727:     const isRestricted = userData.role !== 'admin' && userData.role !== 'superadmin' && userData.branchId;
+2728:     const localToday = new Date();
+2729:     const yyyy = localToday.getFullYear();
+2730:     const mm = String(localToday.getMonth() + 1).padStart(2, '0');
+2731:     const dd = String(localToday.getDate()).padStart(2, '0');
+2732:     const todayStrDDMMYYYY = `${dd}/${mm}/${yyyy}`;
+2733: 
+2734:     const yesterdayObj = new Date(localToday.getTime() - 24 * 60 * 60 * 1000);
+2735:     const yyyyYest = yesterdayObj.getFullYear();
+2736:     const mmYest = String(yesterdayObj.getMonth() + 1).padStart(2, '0');
+2737:     const ddYest = String(yesterdayObj.getDate()).padStart(2, '0');
+2738:     const yesterdayStrDDMMYYYY = `${ddYest}/${mmYest}/${yyyyYest}`;
+2739: 
+2740:     let datesToQuery = [];
+2741: 
+2742:     if (dateFilter === 'today') {
+2743:       datesToQuery = [todayStrDDMMYYYY, yesterdayStrDDMMYYYY];
+2744:     } else if (dateFilter === 'tomorrow') {
+2745:       const tomObj = new Date(localToday.getTime() + 24 * 60 * 60 * 1000);
+2746:       const tomYYYY = tomObj.getFullYear();
+2747:       const tomMM = String(tomObj.getMonth() + 1).padStart(2, '0');
+2748:       const tomDD = String(tomObj.getDate()).padStart(2, '0');
+2749:       datesToQuery = [`${tomDD}/${tomMM}/${tomYYYY}`];
+2750:     } else if (dateFilter === 'custom' && customDate) {
+2751:       const parts = customDate.split('-');
+2752:       if (parts.length === 3) {
+2753:         datesToQuery = [`${parts[2]}/${parts[1]}/${parts[0]}`];
+2754:       }
+2755:     }
+2756: 
+2757:     const branchNames = getBranchNamesList(userData.branchId, userData.branchName);
+2758:     const activePts = { dateQuery: [], activeQuery: [] };
+2759: 
+2760:     const updateMergedList = (sourceKey, list) => {
+2761:       activePts[sourceKey] = list;
+2762:       const merged = {};
+2763:       activePts.dateQuery.forEach(item => { if (!item.isDeleted) merged[item.id] = item; });
+2764:       activePts.activeQuery.forEach(item => { if (!item.isDeleted) merged[item.id] = item; });
+2765:       setPatients(Object.values(merged));
+2766:     };
+2767: 
+2768:     let unsubDate;
+2769:     let unsubActive;
+2770: 
+2771:     if (dateFilter === 'upcoming') {
+2772:       let q;
+2773:       if (isRestricted) {
+2774:         q = query(
+2775:           collection(db, 'allpatients'),
+2776:           where('branchId', 'in', branchNames),
+2777:           where('status', 'in', ['pending', 'booked', 'waiting', 'in-consultation'])
+2778:         );
+2779:       } else {
+2780:         q = query(
+2781:           collection(db, 'allpatients'),
+2782:           where('status', 'in', ['pending', 'booked', 'waiting', 'in-consultation'])
+2783:         );
+2784:       }
+2785:       unsubActive = onSnapshot(q, (snapshot) => {
+2786:         const list = [];
+2787:         snapshot.forEach(docSnap => {
+2788:           const data = docSnap.data();
+2789:           if (!data.isDeleted) list.push({ id: docSnap.id, ...data });
+2790:         });
+2791:         activePts.dateQuery = [];
+2792:         activePts.activeQuery = list;
+2793:         setPatients(list);
+2794:       });
+2795:     } else {
+2796:       let qDate;
+2797:       if (isRestricted) {
+2798:         qDate = query(
+2799:           collection(db, 'allpatients'),
+2800:           where('branchId', 'in', branchNames),
+2801:           where('appointmentDate', 'in', datesToQuery)
+2802:         );
+2803:       } else {
+2804:         qDate = query(
+2805:           collection(db, 'allpatients'),
+2806:           where('appointmentDate', 'in', datesToQuery)
+2807:         );
+2808:       }
+2809:       unsubDate = onSnapshot(qDate, (snapshot) => {
+2810:         const list = [];
+2811:         snapshot.forEach(docSnap => list.push({ id: docSnap.id, ...docSnap.data() }));
+2812:         updateMergedList('dateQuery', list);
+2813:       });
+2814: 
+2815:       let qActive;
+2816:       if (isRestricted) {
+2817:         qActive = query(
+2818:           collection(db, 'allpatients'),
+2819:           where('branchId', 'in', branchNames),
+2820:           where('status', 'in', ['pending', 'booked', 'waiting', 'in-consultation'])
+2821:         );
+2822:       } else {
+2823:         qActive = query(
+2824:           collection(db, 'allpatients'),
+2825:           where('status', 'in', ['pending', 'booked', 'waiting', 'in-consultation'])
+2826:         );
+2827:       }
+2828:       unsubActive = onSnapshot(qActive, (snapshot) => {
+2829:         const list = [];
+2830:         snapshot.forEach(docSnap => list.push({ id: docSnap.id, ...docSnap.data() }));
+2831:         updateMergedList('activeQuery', list);
+2832:       });
+2833:     }
+2834: 
+2835:     return () => {
+2836:       if (unsubDate) unsubDate();
+2837:       if (unsubActive) unsubActive();
+2838:     };
+2839:   }, [userData, dateFilter, customDate]);
+----------------------------------------
+Line 3023:   useEffect(() => {
+3024:     if (userData?.branchId) {
+3025:       checkTargetsForCurrentMonth(userData.branchId);
+3026:     } else {
+3027:       setTargetsSet(true);
+3028:       setLoadingTargets(false);
+3029:     }
+3030:   }, [userData?.branchId]);
+----------------------------------------
+Line 7578:   useEffect(() => {
+7579:     let avoid = "";
+7580:     let eat = "";
+7581:     if (nutritionDisorders.includes("Sugar (Diabetes)")) {
+7582:       avoid += "Sugar, Sweets, Jaggery, Honey, Fruit juices, Maida, White rice, Potatoes.\n";
+7583:       eat += "Millets, Brown rice, Oats, High fiber vegetables, Bitter gourd, Fenugreek.\n";
+7584:     }
+7585:     if (nutritionDisorders.includes("High BP (Hypertension)")) {
+7586:       avoid += "Excess salt, Pickles, Papads, Processed foods, Canned soups, Salty snacks.\n";
+7587:       eat += "Bananas, Spinach, Beetroot, Citrus fruits, Garlic, Potassium-rich foods.\n";
+7588:     }
+7589:     if (nutritionDisorders.includes("Thyroid")) {
+7590:       avoid += "Cabbage, Cauliflower, Broccoli, Soy products, Processed meats.\n";
+7591:       eat += "Brazil nuts, Seaweed, Eggs, Fish, Dairy products, Lean proteins.\n";
+7592:     }
+7593:     if (nutritionDisorders.includes("Gastritis") || nutritionDisorders.includes("Acidity")) {
+7594:       avoid += "Spicy foods, Citrus fruits, Coffee, Alcohol, Fried foods.\n";
+7595:       eat += "Oatmeal, Ginger, Aloe vera, Melons, Lean meats, Herbal teas.\n";
+7596:     }
+7597:     if (nutritionDisorders.includes("IBS / IBD") || nutritionDisorders.includes("Bloating")) {
+7598:       avoid += "Beans, Onions, Garlic, Dairy, Gluten, High-FODMAP foods.\n";
+7599:       eat += "Lactose-free dairy, Quinoa, Zucchini, Spinach, Blueberries.\n";
+7600:     }
+7601:     if (nutritionDisorders.includes("SIBO")) {
+7602:       avoid += "Sugar, Dairy, Grains, Starchy vegetables, Legumes.\n";
+7603:       eat += "Meat, Fish, Eggs, Leafy greens, Non-starchy vegetables.\n";
+7604:     }
+7605:     if (nutritionDisorders.includes("Piles")) {
+7606:       avoid += "Spicy foods, Processed meats, Cheese, White flour, Fried foods.\n";
+7607:       eat += "High fiber foods, Beans, Lentils, Whole grains, Broccoli, Apples, Water.\n";
+7608:     }
+7609:     if (nutritionDisorders.includes("PCOD") || nutritionDisorders.includes("Insulin Resistance")) {
+7610:       avoid += "Refined carbs, Sugary drinks, Processed meats, Solid fats.\n";
+7611:       eat += "High-fiber veggies, Lean proteins, Anti-inflammatory foods, Berries.\n";
+7612:     }
+7613:     if (nutritionDisorders.includes("Hairfall")) {
+7614:       eat += "Eggs, Berries, Spinach, Fatty fish, Sweet potatoes, Avocados, Nuts.\n";
+7615:     }
+7616:     if (nutritionDisorders.includes("Melasma")) {
+7617:       avoid += "Excess sugar, Processed foods, Dairy (if sensitive).\n";
+7618:       eat += "Vitamin C foods, Citrus, Berries, Leafy greens, Antioxidants.\n";
+7619:     }
+7620:     if (nutritionDisorders.includes("Weight Gain")) {
+7621:       eat += "Nuts, Avocados, Whole grains, Protein-rich foods, Healthy fats, Dairy.\n";
+7622:     }
+7623:     if (nutritionDisorders.includes("Weight Loss")) {
+7624:       avoid += "Sugary drinks, Pastries, Fried foods, White bread.\n";
+7625:       eat += "Leafy greens, Salmon, Cruciferous veggies, Lean beef, Chicken breast.\n";
+7626:     }
+7627:     if (nutritionDisorders.includes("Height Growth")) {
+7628:       eat += "Milk, Yogurt, Beans, Chicken, Almonds, Leafy greens, Sweet potatoes.\n";
+7629:     }
+7630:     if (nutritionDisorders.includes("Adenoids / Tonsillitis")) {
+7631:       avoid += "Cold foods, Dairy (if it thickens mucus), Crunchy/hard foods.\n";
+7632:       eat += "Warm broths, Mashed potatoes, Soft fruits, Honey, Ginger tea.\n";
+7633:     }
+7634:     if (nutritionDisorders.includes("Allergies")) {
+7635:       avoid += "Known allergens, Processed foods with preservatives.\n";
+7636:       eat += "Anti-inflammatory foods, Turmeric, Ginger, Citrus, Berries.\n";
+7637:     }
+7638: 
+7639:     if (nutritionDeficiencies.includes("Iron")) {
+7640:       eat += "Spinach, Liver, Red meat, Legumes, Pumpkin seeds, Quinoa.\n";
+7641:     }
+7642:     if (nutritionDeficiencies.includes("Calcium")) {
+7643:       eat += "Milk, Cheese, Yogurt, Sardines, Almonds, Leafy greens.\n";
+7644:     }
+7645:     if (nutritionDeficiencies.includes("Vitamin D")) {
+7646:       eat += "Fatty fish, Egg yolks, Fortified foods, Mushrooms.\n";
+7647:     }
+7648:     if (nutritionDeficiencies.includes("Vitamin C")) {
+7649:       eat += "Citrus fruits, Bell peppers, Strawberries, Tomatoes, Broccoli.\n";
+7650:     }
+7651:     if (nutritionDeficiencies.includes("Vitamin A")) {
+7652:       eat += "Carrots, Sweet potatoes, Spinach, Liver, Cantaloupe.\n";
+7653:     }
+7654:     if (nutritionDeficiencies.includes("Vitamin B")) {
+7655:       eat += "Whole grains, Meat, Eggs, Legumes, Seeds, Nuts.\n";
+7656:     }
+7657:     if (nutritionDeficiencies.includes("Vitamin E")) {
+7658:       eat += "Sunflower seeds, Almonds, Spinach, Avocados, Squash.\n";
+7659:     }
+7660:     if (nutritionDeficiencies.includes("Vitamin K")) {
+7661:       eat += "Kale, Spinach, Broccoli, Brussels sprouts, Cabbage.\n";
+7662:     }
+7663:     if (nutritionDeficiencies.includes("Potassium")) {
+7664:       eat += "Bananas, Oranges, Cantaloupe, Honeydew, Apricots, Grapefruit.\n";
+7665:     }
+7666:     if (nutritionDeficiencies.includes("Magnesium")) {
+7667:       eat += "Dark chocolate, Avocados, Nuts, Legumes, Tofu, Seeds.\n";
+7668:     }
+7669:     if (nutritionDeficiencies.includes("Zinc")) {
+7670:       eat += "Meat, Shellfish, Legumes, Seeds, Nuts, Dairy, Eggs.\n";
+7671:     }
+7672:     if (nutritionDeficiencies.includes("Sodium")) {
+7673:       eat += "Salt, Celery, Beets, Milk, Natural cheeses.\n";
+7674:     }
+7675:     if (nutritionDeficiencies.includes("Protein")) {
+7676:       eat += "Chicken, Eggs, Lentils, Greek yogurt, Almonds, Quinoa, Paneer.\n";
+7677:     }
+7678:     if (nutritionDeficiencies.includes("Manganese")) {
+7679:       eat += "Nuts, Beans, Legumes, Oatmeal, Whole wheat, Spinach.\n";
+7680:     }
+7681:     if (nutritionDeficiencies.includes("Phosphorus")) {
+7682:       eat += "Chicken, Turkey, Pork, Seafood, Seeds, Nuts.\n";
+7683:     }
+7684: 
+7685:     setNutritionAvoid(avoid.trim());
+7686:     setNutritionEat(eat.trim());
+7687:   }, [nutritionDisorders, nutritionDeficiencies]);
+----------------------------------------
+Line 7689:   useEffect(() => {
+7690:     const ageVal = parseInt(nutritionAge, 10) || 30;
+7691:     const prefilled = generatePrefilledDiet(ageVal, nutritionDeficiencies, nutritionDisorders);
+7692:     setNutritionMeals(prefilled);
+7693:   }, [nutritionAge, nutritionDeficiencies, nutritionDisorders]);
+----------------------------------------
+Line 7695:   useEffect(() => {
+7696:     const h = parseFloat(nutritionHeight) / 100;
+7697:     const w = parseFloat(nutritionWeight);
+7698:     if (h > 0 && w > 0) {
+7699:       const bmi = w / (h * h);
+7700:       setNutritionBmi(bmi.toFixed(1));
+7701:     } else {
+7702:       setNutritionBmi(0);
+7703:     }
+7704:   }, [nutritionHeight, nutritionWeight]);
+----------------------------------------

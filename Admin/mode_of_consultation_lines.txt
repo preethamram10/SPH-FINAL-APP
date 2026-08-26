@@ -1,0 +1,26 @@
+HRBookAppointment.jsx:244: modeOfConsultation: 'In-Clinic',
+HRBookAppointment.jsx:467: modeOfConsultation: patientForm.modeOfConsultation || 'In-Clinic',
+HRBookAppointment.jsx:523: modeOfConsultation: 'In-Clinic',
+ReceptionDashboard.jsx:1688: modeOfConsultation: 'In-Clinic',
+ReceptionDashboard.jsx:1739: fullName: '', phone: '', email: '', source: '', modeOfConsultation: 'In-Clinic', subject: '',
+ReceptionDashboard.jsx:4247: const isOnline = rescheduleItem.modeOfConsultation === 'Online' || rescheduleItem.source === 'Online';
+ReceptionDashboard.jsx:4605: modeOfConsultation: patientForm.modeOfConsultation || 'In-Clinic',
+ReceptionDashboard.jsx:7489: modeOfConsultation: 'In-Clinic',
+ReceptionDashboard.jsx:9398: value={patientForm.modeOfConsultation}
+ReceptionDashboard.jsx:9399: onChange={(val) => setPatientForm({ ...patientForm, modeOfConsultation: val })}
+ReceptionDashboard.jsx:9443: if (updatedDoctor && patientForm.modeOfConsultation !== 'Online') {
+ReceptionDashboard.jsx:9458: if (patientForm.modeOfConsultation === 'Online') return true;
+ReceptionDashboard.jsx:9519: if (patientForm.modeOfConsultation === 'Online') return true;
+ReceptionDashboard.jsx:9531: } else if (updatedDoctor && patientForm.modeOfConsultation !== 'Online' && !availableDoctors.some(ad => ad.name === updatedDoctor)) {
+ReceptionDashboard.jsx:9559: if (patientForm.modeOfConsultation === 'Online') return true;
+ReceptionDashboard.jsx:9574: ) : patientForm.modeOfConsultation === 'Online' ? (
+RegisterPatient.js:186: modeOfConsultation: 'In-Clinic',
+RegisterPatient.js:897: modeOfConsultation: patientData.modeOfConsultation || 'In-Clinic',
+RegisterPatient.js:1015: modeOfConsultation: patientData.modeOfConsultation || 'In-Clinic',
+RegisterPatient.js:1029: modeOfConsultation: patientData.modeOfConsultation || 'In-Clinic',
+RegisterPatient.js:1071: modeOfConsultation: patientData.modeOfConsultation || 'In-Clinic',
+RegisterPatient.js:1480: modeOfConsultation: appt.modeOfConsultation || 'In-Clinic'
+RegisterPatient.js:1571: <Text style={[styles.dropdownText, !patientData.modeOfConsultation && { color: '#94a3b8' }]} numberOfLines={1}>
+RegisterPatient.js:1572: {patientData.modeOfConsultation || 'Select'}
+RegisterPatient.js:1582: onPress={() => { setPatientData({ ...patientData, modeOfConsultation: item }); toggleMenu('mode'); }}
+RegisterPatient.js:1735: ) : patientData.modeOfConsultation === 'Online' ? (

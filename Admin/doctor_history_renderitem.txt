@@ -1,0 +1,2 @@
+Line 292:   const renderItem = ({ item }) => (
+293:     <Surface style={st.card}>

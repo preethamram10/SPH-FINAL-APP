@@ -1,0 +1,109 @@
+4181:                       </div>
+4182:                     </div>
+4183:                   ))}
+4184:                 </div>
+4185:               )}
+4186:             </div>
+4188:             <h3 style={{ marginBottom: '16px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+4189:               <Clock size={18} color="var(--primary-color)" /> Full Patient History
+4190:             </h3>
+4192:             {loadingHistoryVisits ? (
+4193:               <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>Loading past visits...</div>
+4194:             ) : historyPatientVisits.length === 0 ? (
+4195:               <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)', background: 'var(--bg-light)', borderRadius: '12px' }}>No past visits found.</div>
+4196:             ) : (
+4197:               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+4198:                 {historyPatientVisits.map((v, idx) => (
+4199:                   <div key={v.id} style={{ padding: '20px', background: 'var(--bg-light)', borderRadius: '12px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+4201:                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '12px' }}>
+4202:                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+4203:                         <span style={{ background: 'var(--primary-color)', color: '#fff', padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold' }}>Visit {historyPatientVisits.length - idx}</span>
+4204:                         <strong style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-main)', fontSize: '15px' }}><Calendar size={14} /> {v.appointmentDate || v.dateString || 'Unknown Date'}</strong>
+4205:                       </div>
+4206:                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+4207:                         <span style={{ fontSize: '13px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}><MapPin size={12} /> {v.branchName || 'N/A'}</span>
+4208:                         <span style={{ fontSize: '11px', fontWeight: 'bold', padding: '4px 10px', borderRadius: '20px', backgroundColor: v.status === 'completed' || v.status === 'done' ? '#d1fae5' : '#f1f5f9', color: v.status === 'completed' || v.status === 'done' ? '#059669' : '#64748b', textTransform: 'uppercase' }}>{v.status || 'Unknown'}</span>
+4209:                       </div>
+4210:                     </div>
+4212:                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+4213:                       <div>
+4214:                         <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '6px' }}>Chief Complaint</div>
+4215:                         <div style={{ fontSize: '14px', color: 'var(--text-main)' }}>{v.complaint || v.subject || 'N/A'}</div>
+4216:                       </div>
+4217:                       <div>
+4218:                         <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '6px' }}>Doctor Consulted</div>
+4219:                         <div style={{ fontSize: '14px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '4px' }}><User size={14} /> {v.doctor || v.doctorName || 'N/A'}</div>
+4220:                       </div>
+4221:                     </div>
+4223:                     <div style={{ background: '#fff', padding: '16px', borderRadius: '8px', borderLeft: '4px solid var(--primary-color)' }}>
+4224:                       <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px' }}>Prescription Notes</div>
+4225:                       <div style={{ fontSize: '14px', color: 'var(--text-main)', whiteSpace: 'pre-wrap', lineHeight: '1.5' }}>{v.prescriptionNotes || v.diagnosisNotes || 'No notes provided.'}</div>
+4226:                     </div>
+4228:                     {v.medicines && v.medicines.length > 0 && (
+4229:                       <div style={{ marginTop: '4px' }}>
+4230:                         <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px' }}>Medicines</div>
+4231:                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+4232:                           {v.medicines.map((m, mIdx) => (
+4233:                             <div key={mIdx} style={{ fontSize: '13px', background: '#fff', padding: '8px 12px', borderRadius: '6px', display: 'flex', justifyContent: 'space-between' }}>
+4234:                               <span><strong>{m.name}</strong> <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>({m.type})</span></span>
+4235:                               <span>{m.timing} {m.duration && <span style={{ color: 'var(--text-muted)' }}>({m.duration})</span>}</span>
+4236:                             </div>
+4237:                           ))}
+4238:                         </div>
+4239:                       </div>
+4240:                     )}
+4242:                     {v.followUpDate && (
+4243:                       <div style={{ marginTop: '8px', fontSize: '13px', color: '#f59e0b', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}>
+4244:                         <Clock size={14} /> Recommended Follow-up: {v.followUpDate}
+4245:                       </div>
+4246:                     )}
+4248:                   </div>
+4249:                 ))}
+4250:               </div>
+4251:             )}
+4252:           </div>
+4253:         </div>
+4254:       )}
+4256:       {/* Selected View Plan Modal */}
+4257:       {selectedViewPlan && (
+4258:         <div className="modal-overlay" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }} onClick={() => setSelectedViewPlan(null)}>
+4259:           <div className="glass-panel slide-in" style={{ width: '95%', maxWidth: '1200px', maxHeight: '90vh', overflowY: 'auto', padding: '30px 30px 30px 15px', position: 'relative', background: '#fff' }} onClick={e => e.stopPropagation()}>
+4260:             <button onClick={() => setSelectedViewPlan(null)} style={{ position: 'absolute', top: '20px', right: '20px', background: 'var(--bg-light)', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+4261:               <X size={20} />
+4262:             </button>
+4263:             <h2 style={{ marginBottom: '20px', color: 'var(--text-main)' }}>30-Day Diet Plan for {selectedViewPlan.patientName}</h2>
+4265:             {/* Plan Info */}
+4266:             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '20px', background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+4267:               <div><strong>Age:</strong> {selectedViewPlan.age} yrs</div>
+4268:               <div><strong>Height / Weight:</strong> {selectedViewPlan.height} cm / {selectedViewPlan.weight} kg</div>
+4269:               <div><strong>BMI:</strong> {selectedViewPlan.bmi}</div>
+4270:               <div><strong>Fee / Status:</strong> ₹{selectedViewPlan.amount} ({selectedViewPlan.paymentStatus?.toUpperCase()})</div>
+4271:               <div><strong>Duration:</strong> {selectedViewPlan.startDate} to {selectedViewPlan.expiryDate}</div>
+4272:             </div>
+4274:             {/* Eat / Avoid */}
+4275:             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+4276:               <div style={{ background: '#fef2f2', padding: '16px', borderRadius: '12px', border: '1px solid #fee2e2' }}>
+4277:                 <h4 style={{ color: '#dc2626', margin: '0 0 8px 0' }}>Foods to Avoid</h4>
+4278:                 <p style={{ margin: 0, fontSize: '13px', whiteSpace: 'pre-line', color: 'var(--text-main)' }}>{selectedViewPlan.foodsToAvoid || 'None specified.'}</p>
+4279:               </div>
+4280:               <div style={{ background: '#f0fdf4', padding: '16px', borderRadius: '12px', border: '1px solid #dcfce7' }}>
+4281:                 <h4 style={{ color: '#16a34a', margin: '0 0 8px 0' }}>Foods to Eat</h4>
+4282:                 <p style={{ margin: 0, fontSize: '13px', whiteSpace: 'pre-line', color: 'var(--text-main)' }}>{selectedViewPlan.foodsToEat || 'None specified.'}</p>
+4283:               </div>
+4284:             </div>
+4286:             {/* Meals Grid */}
+4287:             <h3 style={{ marginBottom: '12px' }}>Diet Schedule</h3>
+4288:             <div className="table-container" style={{ maxHeight: '400px', overflowY: 'auto', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
+4289:               <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse' }}>
+4290:                 <thead style={{ position: 'sticky', top: 0, background: '#fff', zIndex: 1 }}>
+4291:                   <tr style={{ background: 'var(--bg-main)' }}>
+4292:                     <th style={{ padding: '8px 12px', fontSize: '11px', color: 'var(--text-muted)', width: '60px' }}>Day</th>
+4293:                     <th style={{ padding: '8px 12px', fontSize: '11px', color: 'var(--text-muted)' }}>Breakfast</th>
+4294:                     <th style={{ padding: '8px 12px', fontSize: '11px', color: 'var(--text-muted)' }}>Lunch</th>
+4295:                     <th style={{ padding: '8px 12px', fontSize: '11px', color: 'var(--text-muted)' }}>Snacks</th>
+4296:                     <th style={{ padding: '8px 12px', fontSize: '11px', color: 'var(--text-muted)' }}>Dinner</th>
+4297:                   </tr>
+4298:                 </thead>
+4299:                 <tbody>
+4300:                   {selectedViewPlan.meals?.map((m) => (
+4301:                     <tr key={m.dayNumber}>

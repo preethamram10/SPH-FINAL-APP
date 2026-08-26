@@ -1,0 +1,17 @@
+PatientDetails.js:3134: let initialDrawingUrl = "${patient?.diagnosisDrawingUrl || ''}";
+PatientDetails.js:3304: let drawingUrl = patient?.diagnosisDrawingUrl || '';
+PatientDetails.js:3306: drawingUrl = drawingBase64;
+PatientDetails.js:3311: diagnosisDrawingUrl: drawingUrl,
+PatientDetails.js:3801: {patient?.diagnosisDrawingUrl ? (
+PatientDetails.js:3803: <Image source={{ uri: patient.diagnosisDrawingUrl }} style={{ width: '100%', height: 250, borderRadius: 8, resizeMode: 'contain', backgroundColor: 'white' }} />
+PatientDetails.js:3806: {!diagnosisNotes && !patient?.diagnosisDrawingUrl && (
+PatientDetails.js:4482: {patient?.diagnosisDrawingUrl ? (
+PatientDetails.js:4486: source={{ uri: patient.diagnosisDrawingUrl }}
+PatientDetails.js:4525: {!(patient?.diagnosisNotes || patient?.diagnosisDrawingUrl || (patient?.medicines && patient?.medicines.length > 0)) && (
+PatientDetails.js:5575: {visit.diagnosisDrawingUrl ? (
+PatientDetails.js:5578: <Image source={{ uri: visit.diagnosisDrawingUrl }} style={{ width: '100%', height: 160, borderRadius: 12, resizeMode: 'contain', backgroundColor: '#f8fafc', borderWidth: 1, borderColor: COLORS.border }} />
+PatientProfile.js:1983: if (patient?.diagnosisDrawingUrl) uploadedImages.push({ url: patient.diagnosisDrawingUrl, label: 'Diagnosis Drawing' });
+PatientProfile.js:2130: {(patient?.diagnosisNotes || patient?.prescriptionNotes || patient?.diagnosisDrawingUrl) && (
+PatientProfile.js:2136: {patient?.diagnosisDrawingUrl ? (
+PatientProfile.js:2138: source={{ uri: patient.diagnosisDrawingUrl }}
+PatientProfile.js:2507: if (visit.diagnosisDrawingUrl) vImages.push({ url: visit.diagnosisDrawingUrl, label: 'Diagnosis Drawing' });

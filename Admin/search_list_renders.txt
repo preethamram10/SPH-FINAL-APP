@@ -1,0 +1,177 @@
+ReceptionDashboard.jsx:9137: patientsList.map(p => (
+ReceptionDashboard.jsx:9272: {globalSearchResults.map((patient, index) => (
+ReceptionDashboard.jsx:9882: {globalSearchResults.map((patient) => (
+ReceptionDashboard.jsx:14601: {statusModalPatients.map((patient, idx) => (
+ApplyLeave.js:393: {POLICY_INFO[infoLanguage].rules.map((rule, idx) => (
+AttendanceMetricDetails.js:265: itemsList.map((item, idx) => (
+CleaningLockScreen.js:150: {selectedPhotos.map((photo, idx) => (
+ClinicCleaningPhotos.js:289: const branchStatus = branches.map(b => {
+ClinicCleaningPhotos.js:355: branchStatus.map((status, idx) => (
+ClinicCleaningPhotos.js:375: {status.photos.map((url, i) => (
+ClinicCleaningPhotos.js:399: {cleaningData.map((log) => {
+ClinicCleaningPhotos.js:420: {log.photoUrls.map((url, i) => (
+ClinicCleaningPhotos.js:512: {selectedPhotos.map((photo, idx) => (
+DoctorConsultationHistory.js:3: View, StyleSheet, FlatList, TouchableOpacity,
+DoctorConsultationHistory.js:245: ...MONTHS.map((m, i) => ({ id: String(i + 1), name: m }))
+DoctorConsultationHistory.js:247: if (pickerType === 'source') return [{ id: 'all', name: 'All Sources' }, ...PATIENT_SOURCES.map(s => ({ id: s, name: s }))];
+DoctorConsultationHistory.js:403: {revStats.topChannels.map(([src, amt]) => (
+DoctorConsultationHistory.js:438: ].map(({ type, label }) => (
+DoctorConsultationHistory.js:495: <FlatList
+DoctorConsultationHistory.js:558: <FlatList
+DoctorNoShow.js:109: .map(d => daysOfWeekNames[d])
+DoctorNoShow.js:420: noShows.map(ns => (
+DoctorNoShow.js:504: {['date', 'date_range', 'session', 'time_range'].map(type => (
+DoctorNoShow.js:644: {['morning', 'evening', 'all'].map(s => (
+DoctorNoShow.js:733: doctors.map(doc => (
+EmployeeDailyReport.js:397: {branchStaffs.map(staff => (
+EmployeeDailyReport.js:513: {branches.map(br => (
+EmployeeDailyReport.js:549: .map(report => (
+EmployeeDailyReport.js:620: {branches.map(br => (
+EmployeeDailyReport.js:637: getBranchGrouped().map(group => (
+EmployeeDailyReport.js:659: ['Videos', group.totals.videoReviews, '#ec4899']].map(([lbl, val, col]) => (
+EmployeeDailyReport.js:671: .map(report => (
+EmployeeDailyReport.js:716: myHistoryReports.map(report => (
+MediaManager.js:4: Alert, Dimensions, Modal, TextInput as RNTextInput, FlatList, Image
+MediaManager.js:332: <FlatList
+MediaManager.js:398: <FlatList
+MedicineFormEditor.js:4: TextInput as RNTextInput, Platform, Linking, Modal, FlatList, KeyboardAvoidingView, Keyboard
+MedicineFormEditor.js:182: .map(m => `
+MedicineFormEditor.js:351: .map((m, idx) => `${idx + 1}. *${m.name}* (${m.timing}) ${m.duration ? `[${m.duration}]` : ''}`)
+MedicineFormEditor.js:679: <FlatList
+MedicineFormEditor.js:702: {['Mr.', 'Mrs.', 'Ms.', 'Master'].map(g => (
+MedicineFormEditor.js:744: {medicines.map((med, index) => (
+MedicineRequestList.js:2: import { View, StyleSheet, FlatList, TouchableOpacity, Alert, Modal, TextInput as RNTextInput, ScrollView } from 'react-native';
+MedicineRequestList.js:202: label={(item.patientName || 'P').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
+MedicineRequestList.js:313: <FlatList
+MedicineRequestList.js:356: ].map(f => {
+MedicineRequestList.js:386: <FlatList
+MyAttendance.js:2: import { View, StyleSheet, FlatList, TouchableOpacity, Alert, Image } from 'react-native';
+MyAttendance.js:337: <FlatList
+MyDeductions.js:107: const parts = digitsOnly.split(':').map(Number);
+MyDeductions.js:324: {lateDays.map((log) => (
+MyDeductions.js:358: {leavesList.map((item, idx) => (
+MyDeductions.js:427: {POLICY_INFO[infoLanguage].rules.map((rule, idx) => (
+MyPayslips.js:2: import { View, StyleSheet, FlatList, TouchableOpacity, ScrollView } from 'react-native';
+MyPayslips.js:131: <FlatList
+Notifications.js:2: import { View, StyleSheet, FlatList, TouchableOpacity, Keyboard } from 'react-native';
+Notifications.js:65: olderNotifications.map(item => deleteDoc(doc(db, 'notifications', item.id)))
+Notifications.js:80: prev.map(n => n.id === id ? { ...n, isRead: true } : n)
+Notifications.js:92: unreadList.map(n => updateDoc(doc(db, 'notifications', n.id), { isRead: true }))
+Notifications.js:94: setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+Notifications.js:161: <FlatList
+PackageMembers.js:2: import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal, FlatList, TextInput } from 'react-native';
+PackageMembers.js:204: ? item.patientName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
+PackageMembers.js:321: <FlatList
+PackageMembers.js:354: {patientSearchResults.map((p) => (
+PatientDetails.js:317: ${appt.medicines.map(med => `
+PatientDetails.js:500: paymentBreakdownRows = Object.entries(plan.paymentSplitDetails).map(([method, val]) => `
+PatientDetails.js:1383: setNutriMeals(prev => prev.map(m => m.dayNumber === dayNum ? { ...m, [field]: val } : m));
+PatientDetails.js:1484: const messages = tokens.map(t => ({
+PatientDetails.js:1579: const messages = tokens.map(t => ({
+PatientDetails.js:2097: const resolvedHistory = history.map(visit => {
+PatientDetails.js:3713: {['cash', 'phonepe', 'card'].map((method) => (
+PatientDetails.js:3866: {medicines.map((med, idx) => (
+PatientDetails.js:3900: {["15 Days", "1 Month", "2 Months", "3 Months", "4 Months", "5 Months", "6 Months", "1 Year"].map(opt => (
+PatientDetails.js:3907: {medicines.map((med, index) => (
+PatientDetails.js:3931: {["Tablet", "Drops", "Syrup", "Ointment", "Powder", "Injection"].map(opt => (
+PatientDetails.js:3951: {["1-0-1 (Morning, Night)", "1-1-1 (Morning, Afternoon, Night)", "1-0-0 (Morning)", "0-0-1 (Night)", "0-1-0 (Afternoon)", "1-1-0 (Morning, Afternoon)", "0-1-1 (Afternoon, Night)", "When Required (SOS)"].map(opt => (
+PatientDetails.js:3979: {prescUrls.map((url, index) => (
+PatientDetails.js:4241: {["Vitamin A", "Vitamin B", "Vitamin C", "Vitamin D", "Vitamin E", "Vitamin K", "Calcium", "Potassium", "Magnesium", "Zinc", "Iron", "Sodium", "Protein", "Manganese", "Phosphorus"].map((def) => {
+PatientDetails.js:4274: {["Sugar (Diabetes)", "High BP (Hypertension)", "Thyroid", "Gastritis", "IBS / IBD", "SIBO", "Bloating", "Acidity", "Piles", "PCOD", "Insulin Resistance", "Hairfall", "Melasma", "Weight Gain", "Weight Loss", "Height Growth", "Adenoids / Tonsillitis", "Allergies"].map((disorder) => {
+PatientDetails.js:4371: {nutriMeals.map((meal, index) => (
+PatientDetails.js:4510: {patient.medicines.map((med, index) => (
+PatientDetails.js:4550: {prescUrls.map((url, index) => (
+PatientDetails.js:4767: {['cash', 'phonepe', 'card'].map((m) => {
+PatientDetails.js:4807: {['cash', 'phonepe', 'card'].map((m) => {
+PatientDetails.js:4985: {["Vitamin A", "Vitamin B", "Vitamin C", "Vitamin D", "Vitamin E", "Vitamin K", "Calcium", "Potassium", "Magnesium", "Zinc", "Iron", "Sodium", "Protein", "Manganese", "Phosphorus"].map((def) => {
+PatientDetails.js:5018: {["Sugar (Diabetes)", "High BP (Hypertension)", "Thyroid", "Gastritis", "IBS / IBD", "SIBO", "Bloating", "Acidity", "Piles", "PCOD", "Insulin Resistance", "Hairfall", "Melasma", "Weight Gain", "Weight Loss", "Height Growth", "Adenoids / Tonsillitis", "Allergies"].map((disorder) => {
+PatientDetails.js:5111: {nutriMeals.map((meal, index) => (
+PatientDetails.js:5299: {['cash', 'phonepe', 'card'].map((m) => {
+PatientDetails.js:5336: {['cash', 'phonepe', 'card'].map((m) => {
+PatientDetails.js:5456: .map(si => {
+PatientDetails.js:5468: {foldersToShow.map((folder) => {
+PatientDetails.js:5500: fItems.map((item) => (
+PatientDetails.js:5527: {standaloneItems.map((item) => (
+PatientDetails.js:5563: medicalHistory.map((visit, idx) => (
+PatientDetails.js:5591: {visit.prescriptionUrls.map((url, i) => (
+PatientDetails.js:5609: {visit.medicines.map((m, mIdx) => (
+PatientDetails.js:5666: globalFolders.map((folder) => {
+PatientDetails.js:5706: fItems.map((item) => {
+PatientDetails.js:5742: {globalItems.filter(item => !globalFolders.find(f => f.id === item.folderId)).map((item) => {
+PatientDetails.js:6089: {lightboxImages.map((url, index) => (
+PatientProfile.js:351: paymentBreakdownRows += methods.map(method => `
+PatientProfile.js:419: ${appt.itemsPaid.medicinesList.map(med => `
+PatientProfile.js:962: const messages = tokens.map(t => ({
+PatientProfile.js:1476: const itemIds = sharedItems.filter(si => si.type === 'item').map(si => si.itemId);
+PatientProfile.js:1916: setLightboxImages(uploadedImages.map(img => img.url));
+PatientProfile.js:1928: setLightboxImages(uploadedImages.map(img => img.url));
+PatientProfile.js:1976: ? patient.fullName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
+PatientProfile.js:2150: {patient.medicines.map((m, i) => (
+PatientProfile.js:2179: {uploadedImages.map((img, i) => (
+PatientProfile.js:2241: const standaloneItems = resolvedStandaloneItems.map(gi => ({ ...gi, isGlobalShared: true }));
+PatientProfile.js:2249: {foldersToShow.map((folder) => {
+PatientProfile.js:2289: fItems.map((item) => (
+PatientProfile.js:2328: {standaloneItems.map((item) => (
+PatientProfile.js:2386: globalFolders.map((folder) => {
+PatientProfile.js:2417: fItems.map((item) => {
+PatientProfile.js:2452: {globalItems.filter(item => !globalFolders.find(f => f.id === item.folderId)).map((item) => {
+PatientProfile.js:2498: visits.map((visit, idx) => {
+PatientProfile.js:2554: {visit.medicines.map((m, mi) => (
+PatientProfile.js:2624: {vImages.map((img, ii) => (
+PatientProfile.js:2629: setLightboxImages(vImages.map(img => img.url));
+PatientProfile.js:2775: {lightboxImages.map((url, index) => (
+PatientProfile.js:2829: ].map(item => (
+PatientProfile.js:3151: {["15 Days", "1 Month", "2 Months", "3 Months", "4 Months", "5 Months", "6 Months", "1 Year"].map(opt => (
+PatientProfile.js:3158: {medicines.map((med, index) => (
+PatientProfile.js:3313: ].map((m) => (
+PatientRequestForm.js:2: import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform, FlatList, Modal } from 'react-native';
+PatientRequestForm.js:301: <FlatList
+PatientRequestForm.js:323: {requestTypes.map(type => (
+PatientRequestForm.js:345: {urgencyLevels.map(lvl => (
+PatientRequestForm.js:403: requests.map(item => (
+ReceptionPanel.js:2: import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, Image, Keyboard, RefreshControl, TextInput, FlatList, Modal, Linking } from 'react-native';
+ReceptionPanel.js:891: const batchUpdates = activePatients.map((p, idx) => {
+ReceptionPanel.js:1017: combined = combined.map(p => {
+ReceptionPanel.js:1094: allFetched = snapshot.docs.map(doc => {
+ReceptionPanel.js:1293: ? patient.fullName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
+ReceptionPanel.js:1561: <FlatList
+ReceptionPanel.js:1627: <FlatList
+ReceptionPanel.js:1636: label={item.fullName ? item.fullName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : 'P'}
+ReceptionPanel.js:1789: {uniqueBranches.map((branch) => (
+ReceptionPanel.js:1852: {uniqueDoctors.map((docName) => (
+ReceptionPanel.js:1927: {CANONICAL_BRANCHES.map(branch => (
+ReceptionPanel.js:1949: {CANONICAL_DOCTORS.map(docName => (
+RegisterPatient.js:431: const timings = doctorBranches.map(brName => ({
+RegisterPatient.js:449: const customBranches = [...new Set(u.timings.map(t => t.branch))];
+RegisterPatient.js:608: const slotsWithAvailability = combinedList.map(time => {
+RegisterPatient.js:630: const bookings = snapshot.docs.map(doc => doc.data());
+RegisterPatient.js:745: const [startHour, startMin] = startStr.split(':').map(Number);
+RegisterPatient.js:746: const [endHour, endMin] = endStr.split(':').map(Number);
+RegisterPatient.js:781: const branchStrings = availableOtherBranches.map(t => {
+RegisterPatient.js:782: const intervalsStr = t.intervals.map(iv => {
+RegisterPatient.js:816: const generalSchedules = Object.keys(allWorkDays).map(brName => `${brName} (${allWorkDays[brName].join(', ')})`);
+RegisterPatient.js:1395: {globalSearchResults.map((patient, index) => (
+RegisterPatient.js:1468: {existingAppointments.map((appt) => (
+RegisterPatient.js:1545: {['Instagram', 'Facebook', 'Website', 'Google', 'Practo', 'Referral', 'Youtube', 'Walk-in', 'Old Patient'].map((item) => (
+RegisterPatient.js:1579: {['In-Clinic', 'Online'].map((item) => (
+RegisterPatient.js:1657: .map((doc) => (
+RegisterPatient.js:1710: {patientData.doctor.branches?.map((branchName) => (
+RegisterPatient.js:1841: {availableSlots.map((slot, index) => (
+RewardPointClaim.js:2: import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Modal, FlatList, Image, Linking, KeyboardAvoidingView, Platform, Keyboard } from 'react-native';
+RewardPointClaim.js:310: products: products.map(p => ({ name: p.name, price: p.price })),
+RewardPointClaim.js:559: {products.map((item, idx) => (
+RewardPointClaim.js:781: {products.map((item, idx) => (
+ShippingForm.js:2: import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, Linking, ActivityIndicator, FlatList, Modal, Clipboard, KeyboardAvoidingView, Platform } from 'react-native';
+ShippingForm.js:225: const sizeParts = (dimensions || '10 x 10 x 10').split('x').map(s => parseInt(s.trim()) || 10);
+ShippingForm.js:404: : (shipment.dimensions || '10 x 10 x 10').split('x').map(s => parseInt(s.trim()) || 10);
+ShippingForm.js:718: ].map((status) => (
+ShippingForm.js:745: <FlatList
+ShippingForm.js:1297: {couriersList.map((courier) => {
+ShippingForm.js:1454: {trackingData.shipment_track_activities.map((activity, index) => {
+UpcomingAppointmentsScreen.js:290: const [startHour, startMin] = startStr.split(':').map(Number);
+UpcomingAppointmentsScreen.js:291: const [endHour, endMin] = endStr.split(':').map(Number);
+UpcomingAppointmentsScreen.js:1001: {sortedDates.map((dateStr) => {
+UpcomingAppointmentsScreen.js:1024: {groupedData[dateStr].map((appt) => (
+UpcomingAppointmentsScreen.js:1040: .map((n) => n[0])
+UpcomingAppointmentsScreen.js:1345: }).map((docName) => (
+UpcomingAppointmentsScreen.js:1375: }).map((br) => (

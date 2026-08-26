@@ -1,0 +1,234 @@
+Line 3793:   async function fetchData() {
+3794:     if (!userData) return;
+3795:     cleanActiveListeners();
+3796: 
+3797:     try {
+3798:       const isRestricted = userData.role !== 'admin' && userData.role !== 'superadmin' && userData.branchId;
+3799:       const branchNames = getBranchNamesList(userData.branchId, userData.branchName);
+3800: 
+3801:       let appointmentsQuery = collection(db, 'allpatients');
+3802:       let medicineRequestsQuery = collection(db, 'medicine_requests');
+3803:       let followupsQuery = collection(db, 'followups');
+3804:       let billsQuery = collection(db, 'allpatients');
+3805: 
+3806:       if (isRestricted) {
+3807:         appointmentsQuery = query(collection(db, 'allpatients'), where('branchId', 'in', branchNames));
+3808:         medicineRequestsQuery = query(collection(db, 'medicine_requests'), where('branchId', 'in', branchNames));
+3809:         billsQuery = query(collection(db, 'allpatients'), where('branchId', 'in', branchNames), where('paymentStatus', '==', 'pending'));
+3810:         followupsQuery = query(collection(db, 'followups'), where('branchId', 'in', branchNames), limit(500));
+3811:       } else {
+3812:         billsQuery = query(collection(db, 'allpatients'), where('paymentStatus', '==', 'pending'), limit(500));
+3813:         followupsQuery = query(collection(db, 'followups'), limit(500));
+3814:         medicineRequestsQuery = query(collection(db, 'medicine_requests'), limit(500));
+3815:       }
+3816: 
+3817:       // Doctors list
+3818:       const qDocs = query(collection(db, 'users'), where('role', '==', 'doctor'));
+3819:       const snapDocs = await getDocs(qDocs);
+3820:       const docsList = [];
+3821:       snapDocs.forEach(doc => docsList.push({ id: doc.id, ...doc.data() }));
+3822:       setDoctors(docsList);
+3823: 
+3824:       // Fetch branches list
+3825:       try {
+3826:         const qBranches = query(collection(db, 'users'), where('role', '==', 'branch'));
+3827:         const snapBranches = await getDocs(qBranches);
+3828:         const branchesList = [];
+3829:         snapBranches.forEach(doc => {
+3830:           branchesList.push({ id: doc.id, ...doc.data() });
+3831:         });
+3832: 
+3833:         // Fallback to branches collection if empty
+3834:         if (branchesList.length === 0) {
+3835:           const snapBranchesColl = await getDocs(collection(db, 'branches'));
+3836:           snapBranchesColl.forEach(doc => {
+3837:             branchesList.push({ id: doc.id, ...doc.data() });
+3838:           });
+3839:         }
+3840: 
+3841:         setBranches(branchesList);
+3842:       } catch (err) {
+3843:         console.warn("Error fetching branches list:", err);
+3844:       }
+3845: 
+3846:       // Realtime listener for Package Members
+3847:       let qPkg = collection(db, 'package_members');
+3848:       if (isRestricted) {
+3849:         qPkg = query(collection(db, 'package_members'), where('branchId', 'in', branchNames));
+3850:       } else {
+3851:         qPkg = query(collection(db, 'package_members'), limit(500));
+3852:       }
+3853:       const unsubPkg = onSnapshot(qPkg, (snapshot) => {
+3854:         const pkgMap = new Map();
+3855:         const today = new Date().toISOString().split('T')[0];
+3856:         snapshot.forEach(docSnap => {
+3857:           const data = docSnap.data();
+3858:           let isActive = false;
+3859:           if (data.startDate && data.endDate) {
+3860:             if (today >= data.startDate && today <= data.endDate) {
+3861:               isActive = true;
+3862:             }
+3863:           } else if (data.status === 'active') {
+3864:             isActive = true;
+3865:           }
+3866:           if (isActive) {
+3867:             const m = (data.patientMobile || '').replace(/\D/g, '').slice(-10);
+3868:             if (m) {
+3869:               pkgMap.set(m, docSnap.id);
+3870:             }
+3871:           }
+3872:         });
+3873:         setActivePackageMap(pkgMap);
+3874:       }, (error) => {
+3875:         console.error("Error listening to package members on web reception:", error);
+3876:       });
+3877:       activeListenersRef.current.push(unsubPkg);
+3878: 
+3879:       // Realtime listener for Doctor No Shows
+3880:       let noShowsQuery = collection(db, 'doctor_no_shows');
+3881:       if (isRestricted) {
+3882:         noShowsQuery = query(collection(db, 'doctor_no_shows'), where('branchId', 'in', branchNames));
+3883:       }
+3884:       const unsubNoShows = onSnapshot(noShowsQuery, (snapshot) => {
+3885:         const list = [];
+3886:         snapshot.forEach(d => {
+3887:           list.push({ id: d.id, ...d.data() });
+3888:         });
+3889:         setNoShows(list);
+3890:       }, (error) => {
+3891:         console.error("Error listening to doctor no shows on web reception:", error);
+3892:       });
+3893:       activeListenersRef.current.push(unsubNoShows);
+3894: 
+3895:       // Realtime listener for Medicine Requests
+3896:       const unsubMed = onSnapshot(medicineRequestsQuery, (snapshot) => {
+3897:         const reqs = [];
+3898:         snapshot.forEach(d => reqs.push({ id: d.id, ...d.data() }));
+3899:         reqs.sort((a, b) => (b.requestedAt?.seconds || 0) - (a.requestedAt?.seconds || 0));
+3900:         setMedRequests(reqs);
+3901:       });
+3902:       activeListenersRef.current.push(unsubMed);
+3903: 
+3904:       // Realtime listener for Patients/Appointments Billing
+3905:       const unsubBills = onSnapshot(billsQuery, (snapshot) => {
+3906:         const bls = [];
+3907:         snapshot.forEach(d => {
+3908:           const item = d.data();
+3909:           if (!item.isDeleted) bls.push({ id: d.id, ...item });
+3910:         });
+3911:         setBills(bls);
+3912: 
+3913:         if (selectedBill) {
+3914:           const updated = bls.find(b => b.id === selectedBill.id);
+3915:           if (updated) {
+3916:             setSelectedBill(prev => ({ ...prev, ...updated }));
+3917:           }
+3918:         }
+3919:       });
+3920:       activeListenersRef.current.push(unsubBills);
+3921: 
+3922:       // Realtime listener for completed walk-ins of today and yesterday
+3923:       const localToday = new Date();
+3924:       const yyyy = localToday.getFullYear();
+3925:       const mm = String(localToday.getMonth() + 1).padStart(2, '0');
+3926:       const dd = String(localToday.getDate()).padStart(2, '0');
+3927:       const todayStrDDMMYYYY = `${dd}/${mm}/${yyyy}`;
+3928: 
+3929:       const yesterdayObj = new Date(localToday.getTime() - 24 * 60 * 60 * 1000);
+3930:       const yyyyYest = yesterdayObj.getFullYear();
+3931:       const mmYest = String(yesterdayObj.getMonth() + 1).padStart(2, '0');
+3932:       const ddYest = String(yesterdayObj.getDate()).padStart(2, '0');
+3933:       const yesterdayStrDDMMYYYY = `${ddYest}/${mmYest}/${yyyyYest}`;
+3934:       const datesToQuery = [todayStrDDMMYYYY, yesterdayStrDDMMYYYY];
+3935: 
+3936:       let completedWalkinsQuery = collection(db, 'allpatients');
+3937:       if (isRestricted) {
+3938:         completedWalkinsQuery = query(
+3939:           collection(db, 'allpatients'),
+3940:           where('branchId', 'in', branchNames),
+3941:           where('appointmentDate', 'in', datesToQuery)
+3942:         );
+3943:       } else {
+3944:         completedWalkinsQuery = query(
+3945:           collection(db, 'allpatients'),
+3946:           where('appointmentDate', 'in', datesToQuery)
+3947:         );
+3948:       }
+3949: 
+3950:       const unsubCompletedWalkins = onSnapshot(completedWalkinsQuery, (snapshot) => {
+3951:         const list = [];
+3952:         snapshot.forEach(docSnap => {
+3953:           const data = docSnap.data();
+3954:           const status = (data.status || '').toLowerCase();
+3955:           if ((status === 'completed' || status === 'done') && !data.isDeleted) {
+3956:             list.push({ id: docSnap.id, ...data });
+3957:           }
+3958:         });
+3959:         setCompletedWalkins(list);
+3960:       });
+3961:       activeListenersRef.current.push(unsubCompletedWalkins);
+3962: 
+3963:       // Realtime listener for Nutrition Billing
+3964:       let nutritionQuery = collection(db, 'nutrition_plans');
+3965:       if (isRestricted) {
+3966:         nutritionQuery = query(collection(db, 'nutrition_plans'), where('branchId', 'in', branchNames));
+3967:       } else {
+3968:         nutritionQuery = query(collection(db, 'nutrition_plans'), limit(500));
+3969:       }
+3970:       const unsubNutrition = onSnapshot(nutritionQuery, (snapshot) => {
+3971:         const plans = [];
+3972:         snapshot.forEach(d => {
+3973:           plans.push({ id: d.id, ...d.data() });
+3974:         });
+3975:         setNutritionPlans(plans);
+3976: 
+3977:         if (selectedNutritionPayPlan) {
+3978:           const updated = plans.find(p => p.id === selectedNutritionPayPlan.id);
+3979:           if (updated) {
+3980:             setSelectedNutritionPayPlan(prev => ({ ...prev, ...updated }));
+3981:           }
+3982:         }
+3983:       });
+3984:       activeListenersRef.current.push(unsubNutrition);
+3985: 
+3986:       // Realtime listener for Transactions (Revenue Tracking) - Only for admin/superadmin
+3987:       let unsubTransactions = () => { };
+3988:       if (userData?.role === 'admin' || userData?.role === 'superadmin') {
+3989:         const transactionsQuery = query(
+3990:           collection(db, 'alltransactions'),
+3991:           orderBy('timestamp', 'desc'),
+3992:           limit(500)
+3993:         );
+3994:         unsubTransactions = onSnapshot(transactionsQuery, (snapshot) => {
+3995:           const txs = [];
+3996:           snapshot.forEach(d => {
+3997:             txs.push({ id: d.id, ...d.data() });
+3998:           });
+3999:           setTransactions(txs);
+4000:         }, (error) => {
+4001:           console.error("Error listening to alltransactions:", error);
+4002:         });
+4003:       } else {
+4004:         setTransactions([]);
+4005:       }
+4006:       activeListenersRef.current.push(unsubTransactions);
+4007: 
+4008:       // Realtime listener for Follow-ups
+4009:       const unsubFollow = onSnapshot(followupsQuery, (snapshot) => {
+4010:         const fls = [];
+4011:         snapshot.forEach(doc => {
+4012:           const item = doc.data();
+4013:           if (item.followUpDate) fls.push({ id: doc.id, ...item });
+4014:         });
+4015:         setFollowups(fls);
+4016:       });
+4017:       activeListenersRef.current.push(unsubFollow);
+4018: 
+4019:       // Realtime listener for Appointments - DEPRECATED: appointments are now unified in allpatients
+4020:       setAppointments([]);
+4021:       const unsubAppts = () => { };
+4022:       activeListenersRef.current.push(unsubAppts);
+4023:     } catch (err) {
+4024:       console.error('Error fetching dashboard data:', err);
+4025:     }
+4026:   }

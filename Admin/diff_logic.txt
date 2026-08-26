@@ -1,0 +1,43 @@
+Line 3
+ADMIN:     const parseD = (raw) => {
+HR   :     const parseD = (raw) => parseFlexibleDate(raw);
+
+Line 4
+ADMIN:       if (!raw) return null;
+HR   : 
+
+Line 5
+ADMIN:       if (raw.toDate) return raw.toDate();
+HR   :     const paidItemsMap = new Map();
+
+Line 6
+ADMIN:       if (raw.seconds) return new Date(raw.seconds * 1000);
+HR   :     const processedStandaloneDietPlans = new Set();
+
+Line 7
+ADMIN:       return new Date(raw);
+HR   : 
+
+Line 8
+ADMIN:     };
+HR   :     const trackPaidItem = (key, itemsPaid) => {
+
+Line 9
+ADMIN: 
+HR   :       if (!key) return;
+
+Line 10
+ADMIN:     const paidItemsMap = new Map();
+HR   :       if (!paidItemsMap.has(key)) paidItemsMap.set(key, { cons: false, med: false, diet: false });
+
+Line 11
+ADMIN:     const processedStandaloneDietPlans = new Set();
+HR   :       const entry = paidItemsMap.get(key);
+
+Line 12
+ADMIN: 
+HR   :       if (itemsPaid) {
+
+Line 13
+ADMIN:     const trackPaidItem = (key, itemsPaid) => {
+HR   :         if (Number(itemsPaid.consultation || 0) > 0) entry.cons = true;

@@ -1,0 +1,333 @@
+const allHistoryTransactions = useMemo(() => {
+    const list = [];
+
+    const parseD = (raw) => {
+      if (!raw) return null;
+      if (raw.toDate) return raw.toDate();
+      if (raw.seconds) return new Date(raw.seconds * 1000);
+      return new Date(raw);
+    };
+
+    const paidItemsMap = new Map();
+    const processedStandaloneDietPlans = new Set();
+
+    const trackPaidItem = (key, itemsPaid) => {
+      if (!key) return;
+      if (!paidItemsMap.has(key)) paidItemsMap.set(key, { cons: false, med: false, diet: false });
+      const entry = paidItemsMap.get(key);
+      if (itemsPaid) {
+        if (Number(itemsPaid.consultation || 0) > 0) entry.cons = true;
+        if (Number(itemsPaid.medicine || 0) > 0) entry.med = true;
+        if (Number(itemsPaid.dietPlan || 0) > 0) entry.diet = true;
+      } else {
+        entry.cons = true;
+      }
+    };
+
+    // Consultations
+    filteredRevenuePatients.forEach(p => {
+      const hasMed = p.itemsPaid?.medicine > 0;
+      const hasDiet = p.itemsPaid?.dietPlan > 0;
+      const hasCons = p.itemsPaid?.consultation > 0 || (!p.itemsPaid?.consultation && !p.itemsPaid?.medicine && !p.itemsPaid?.dietPlan);
+
+      const consAmt = (() => {
+        if (p.paymentStatus !== 'paid') return 0;
+        let amount = Number(p.paymentAmount || p.amountPaid || p.amount || p.totalAmount || p.consultationFee || 0);
+        if (p.itemsPaid) {
+          const cons = Number(p.itemsPaid.consultation || 0);
+          const med = Number(p.itemsPaid.medicine || 0);
+          const diet = Number(p.itemsPaid.dietPlan || 0);
+          let other = 0;
+          if (Array.isArray(p.itemsPaid.otherFees)) {
+            other = p.itemsPaid.otherFees.reduce((acc, f) => acc + Number(f.amount || 0), 0);
+          }
+          const totalItems = cons + med + diet + other;
+          if (totalItems > 0) amount = totalItems;
+        }
+        return amount;
+      })();
+
+      let rowType = 'Consultation';
+      if (hasCons && hasMed && hasDiet) rowType = 'Consultation & Medicine Fee / Diet Plan';
+      else if (hasCons && hasMed) rowType = 'Consultation & Medicine Fee';
+      else if (hasCons && hasDiet) rowType = 'Consultation / Diet Plan';
+      else if (!hasCons && hasMed && hasDiet) rowType = 'Medicine Fee / Diet Plan';
+      else if (!hasCons && hasDiet) rowType = 'Diet Plan';
+      else if (!hasCons && hasMed) rowType = 'Medicine Fee';
+
+      const d = parseD(p.paymentCollectedAt || p.appointmentDate || p.createdAt || p.date);
+      const timestamp = d ? d.getTime() : 0;
+      let dateStr = safeDateDisplay(p.paymentCollectedAt || p.appointmentDate || p.createdAt || p.date) || "N/A";
+
+      const k1 = p.id ? `${p.id}_${d ? d.toDateString() : ''}` : null;
+      if (k1) trackPaidItem(k1, p.itemsPaid);
+      const regId = p.registrationId || p.regId || p.regID;
+      const k2 = regId ? `${regId}_${d ? d.toDateString() : ''}` : null;
+      if (k2) trackPaidItem(k2, p.itemsPaid);
+
+      list.push({
+        id: `cons_${p.id}_${Math.random().toString(36).substring(7)}`,
+        type: rowType,
+        regId: p.registrationId || p.regId || p.regID || (p.id && p.id.startsWith('WK') ? p.id : null) || '-',
+        patientName: p.fullName || p.patientName || '-',
+        phone: p.phone || p.patientPhone || p.phoneNumber || p.contactNumber || p.contact || '-',
+        branch: p.branchName || 'Main Branch',
+        doctorName: p.doctor || p.doctorName || p.assignDoctor || '-',
+        source: p.source || 'Walk-in',
+        amount: consAmt,
+        method: (() => {
+          const m = (p.paymentMethod || '-').toUpperCase();
+          if (m === 'SPLIT' || m === 'APP_SPLIT') return 'CASH/UPI';
+          if (['ONLINE_RAZORPAY', 'ONLINE', 'APP', 'PHONEPE', 'GPAY', 'PAYTM', 'UPI'].includes(m)) return 'UPI';
+          return m;
+        })(),
+        dateTime: dateStr,
+        timestamp,
+        status: p.paymentStatus === 'paid' ? 'PAID' : 'NOT PAID',
+        duration: 0,
+        itemsPaid: p.itemsPaid || null
+      });
+    });
+
+    // Old Consultations
+    filteredPharmacyTransactions.forEach(tr => {
+      if (tr.type !== 'consultation') return;
+
+      const d = parseD(tr.timestamp);
+      const k1 = `${tr.patientId}_${d ? d.toDateString() : ''}`;
+      const regId = tr.registrationId || tr.regId || tr.regID || '-';
+      const k2 = (regId !== '-') ? `${regId}_${d ? d.toDateString() : ''}` : null;
+
+      if ((k1 && paidItemsMap.get(k1)?.cons) || (k2 && paidItemsMap.get(k2)?.cons)) return;
+
+      let fullDateTime = safeDateDisplay(tr.timestamp) || 'N/A';
+
+      list.push({
+        id: `old_cons_${tr.id || Math.random()}`,
+        type: 'Consultation',
+        regId: regId !== '-' ? regId : '-',
+        patientName: tr.patientName || tr.fullName || '-',
+        phone: tr.patientPhone || tr.phone || '-',
+        branch: tr.branchName || 'Main Branch',
+        doctorName: tr.doctor || tr.doctorName || '-',
+        source: tr.source || 'Walk-in',
+        amount: Number(tr.amount) || 0,
+        method: (() => {
+          let m = (tr.method || 'N/A').toUpperCase();
+          const isSplit = tr.paymentId && typeof tr.paymentId === 'string' && tr.paymentId.includes('SPLIT');
+          if (isSplit || m === 'SPLIT' || m === 'APP_SPLIT') return 'CASH/UPI';
+          if (['ONLINE_RAZORPAY', 'ONLINE', 'APP', 'PHONEPE', 'GPAY', 'PAYTM', 'UPI'].includes(m)) return 'UPI';
+          return m;
+        })(),
+        dateTime: fullDateTime,
+        timestamp: d ? d.getTime() : 0,
+        status: 'PAID',
+        duration: 0,
+        itemsPaid: tr.itemsPaid || null
+      });
+    });
+
+    // Pharmacy
+    filteredPharmacyTransactions.forEach(tr => {
+      if (tr.type === 'consultation') return;
+      const patientDoc = tr.patientId ? patients.find(p => p.id === tr.patientId) : null;
+
+      const d = parseD(tr.timestamp);
+      const k1 = `${tr.patientId}_${d ? d.toDateString() : ''}`;
+      const regId = tr.registrationId || tr.regId || tr.regID || patientDoc?.registrationId || patientDoc?.regId || patientDoc?.regID || '-';
+      const k2 = (regId !== '-') ? `${regId}_${d ? d.toDateString() : ''}` : null;
+
+      if (tr.type === 'nutrition') {
+        if ((k1 && paidItemsMap.get(k1)?.diet) || (k2 && paidItemsMap.get(k2)?.diet)) return;
+        if (k1) processedStandaloneDietPlans.add(k1);
+        if (k2) processedStandaloneDietPlans.add(k2);
+      } else {
+        if ((k1 && paidItemsMap.get(k1)?.med) || (k2 && paidItemsMap.get(k2)?.med)) return;
+      }
+
+      const timestamp = d ? d.getTime() : 0;
+      let fullDateTime = safeDateDisplay(tr.timestamp) || 'N/A';
+
+      list.push({
+        id: `pharm_${tr.id || Math.random()}`,
+        type: tr.type === 'nutrition' ? 'Diet Plan' : 'Consultation & Medicine Fee',
+        regId: tr.registrationId || tr.regId || tr.regID || patientDoc?.registrationId || patientDoc?.regId || patientDoc?.regID || '-',
+        patientName: tr.patientName || tr.fullName || patientDoc?.fullName || '-',
+        phone: tr.patientPhone || tr.phone || tr.phoneNumber || patientDoc?.phone || patientDoc?.patientPhone || patientDoc?.phoneNumber || '-',
+        branch: tr.branchName || 'Main Branch',
+        doctorName: tr.doctor || tr.doctorName || tr.prescribedBy || patientDoc?.doctor || patientDoc?.doctorName || patientDoc?.assignDoctor || '-',
+        source: tr.source || 'Walk-in',
+        amount: (() => {
+          let amt = Number(tr.amount) || 0;
+          if (tr.type === 'nutrition') {
+            return amt;
+          }
+          if (patientDoc && patientDoc.itemsPaid && patientDoc.itemsPaid.medicine !== undefined) {
+            amt = Number(patientDoc.itemsPaid.medicine);
+          } else {
+            const isSplit = tr.paymentId && typeof tr.paymentId === 'string' && tr.paymentId.includes('SPLIT');
+            const m = (tr.method || '-').toUpperCase();
+            if (isSplit || m === 'SPLIT' || m === 'APP_SPLIT') {
+              if (tr.itemsPaid) {
+                const med = Number(tr.itemsPaid.medicine || 0);
+                const diet = Number(tr.itemsPaid.dietPlan || 0);
+                let other = 0;
+                if (Array.isArray(tr.itemsPaid.otherFees)) {
+                  other = tr.itemsPaid.otherFees.reduce((acc, f) => acc + Number(f.amount || 0), 0);
+                }
+                const tot = med + diet + other;
+                if (tot > 0) amt = tot;
+              }
+            }
+          }
+          return amt;
+        })(),
+        method: (() => {
+          let m = (tr.method || 'N/A').toUpperCase();
+          const isSplit = tr.paymentId && typeof tr.paymentId === 'string' && tr.paymentId.includes('SPLIT');
+          if (isSplit || m === 'SPLIT' || m === 'APP_SPLIT') return 'CASH/UPI';
+          if (['ONLINE_RAZORPAY', 'ONLINE', 'APP', 'PHONEPE', 'GPAY', 'PAYTM', 'UPI'].includes(m)) return 'UPI';
+          return m;
+        })(),
+        dateTime: fullDateTime,
+        timestamp,
+        status: 'PAID',
+        duration: 0,
+        itemsPaid: tr.type === 'nutrition' ? { dietPlan: Number(tr.amount) || 0 } : (tr.itemsPaid || null)
+      });
+    });
+
+    // Medicine Forms
+    filteredMedicineForms.forEach(form => {
+      const patientDoc = form.patientId ? patients.find(p => p.id === form.patientId) : null;
+
+      const d = parseD(form.createdAt || form.formDate);
+      const k1 = `${form.patientId}_${d ? d.toDateString() : ''}`;
+      const regId = form.registrationId || form.regId || form.regID || patientDoc?.registrationId || patientDoc?.regId || patientDoc?.regID || '-';
+      const k2 = (regId !== '-') ? `${regId}_${d ? d.toDateString() : ''}` : null;
+
+      const amt = Number(form.amountPaid) || 0;
+      if (amt <= 0) return;
+
+      if ((k1 && paidItemsMap.get(k1)?.med) || (k2 && paidItemsMap.get(k2)?.med)) return;
+
+      const timestamp = d ? d.getTime() : 0;
+      let fullDateTime = safeDateDisplay(form.createdAt || form.formDate) || 'N/A';
+
+      list.push({
+        id: `medform_${form.id || Math.random().toString(36).substring(7)}`,
+        type: 'Consultation & Medicine Fee',
+        regId: regId,
+        patientName: form.patientName || patientDoc?.fullName || '-',
+        phone: form.phone || patientDoc?.phone || '-',
+        branch: form.branchName || 'Main Branch',
+        doctorName: form.doctor || form.doctorName || patientDoc?.doctor || patientDoc?.doctorName || '-',
+        source: patientDoc?.source || 'Walk-in',
+        amount: Number(form.amountPaid) || 0,
+        method: (form.paymentMethod || 'N/A').toUpperCase(),
+        dateTime: fullDateTime,
+        timestamp,
+        status: 'PAID',
+        duration: form.duration || 0,
+        itemsPaid: { medicine: Number(form.amountPaid) || 0 }
+      });
+    });
+
+    // Diet Plans (Nutrition Plans)
+    filteredNutritionPlansForRevenue.forEach(plan => {
+      const patientDoc = plan.patientId ? patients.find(p => p.id === plan.patientId) : null;
+
+      const d = parseD(plan.paymentCollectedAt || plan.createdAt);
+      const k1 = `${plan.patientId}_${d ? d.toDateString() : ''}`;
+      const regId = plan.registrationId || plan.regId || plan.regID || patientDoc?.registrationId || patientDoc?.regId || patientDoc?.regID || '-';
+      const k2 = (regId !== '-') ? `${regId}_${d ? d.toDateString() : ''}` : null;
+
+      const amt = Number(plan.amountPaid || plan.amount) || 0;
+      if (amt <= 0) return;
+
+      if ((k1 && paidItemsMap.get(k1)?.diet) || (k2 && paidItemsMap.get(k2)?.diet)) return;
+      if ((k1 && processedStandaloneDietPlans.has(k1)) || (k2 && processedStandaloneDietPlans.has(k2))) return;
+
+      const timestamp = d ? d.getTime() : 0;
+      let fullDateTime = safeDateDisplay(plan.paymentCollectedAt || plan.createdAt) || 'N/A';
+
+      list.push({
+        id: `dietplan_${plan.id || Math.random().toString(36).substring(7)}`,
+        type: 'Diet Plan',
+        regId: regId,
+        patientName: plan.patientName || patientDoc?.fullName || '-',
+        phone: plan.patientPhone || patientDoc?.phone || '-',
+        branch: plan.branchName || 'Main Branch',
+        doctorName: plan.doctorName || patientDoc?.doctor || patientDoc?.doctorName || '-',
+        source: plan.source || plan.source || patientDoc?.source || 'Walk-in',
+        amount: amt,
+        method: (plan.paymentMethod || 'N/A').toUpperCase(),
+        dateTime: fullDateTime,
+        timestamp,
+        status: 'PAID',
+        duration: plan.duration || 0,
+        itemsPaid: { dietPlan: amt }
+      });
+    });
+
+    let finalTxList = list.filter(tr => Number(tr.amount) > 0);
+
+    const groupedTx = new Map();
+    finalTxList.forEach(tr => {
+      let dateKey = 'unknown';
+      if (tr.timestamp) {
+        const d = new Date(tr.timestamp);
+        dateKey = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+      }
+
+      let patientPhone = tr.phone && tr.phone !== '-' ? String(tr.phone).trim() : (tr.patientName ? String(tr.patientName).trim() : '-');
+      let normalizedPhone = patientPhone;
+      if (normalizedPhone.length >= 10 && !isNaN(normalizedPhone.slice(-10))) {
+        normalizedPhone = normalizedPhone.slice(-10);
+      }
+
+      const key = `${normalizedPhone}_${dateKey}`;
+
+      if (!groupedTx.has(key)) {
+        groupedTx.set(key, {
+          ...tr,
+          methods: new Set([(tr.method || 'N/A').toUpperCase()]),
+          types: new Set([tr.type]),
+          itemsPaid: tr.itemsPaid ? { ...tr.itemsPaid } : null
+        });
+      } else {
+        const existing = groupedTx.get(key);
+        existing.amount += Number(tr.amount || 0);
+        existing.methods.add((tr.method || 'N/A').toUpperCase());
+        existing.types.add(tr.type);
+        if (tr.itemsPaid) {
+          existing.itemsPaid = existing.itemsPaid || {};
+          if (tr.itemsPaid.consultation) existing.itemsPaid.consultation = (existing.itemsPaid.consultation || 0) + Number(tr.itemsPaid.consultation);
+          if (tr.itemsPaid.medicine) existing.itemsPaid.medicine = (existing.itemsPaid.medicine || 0) + Number(tr.itemsPaid.medicine);
+          if (tr.itemsPaid.dietPlan) existing.itemsPaid.dietPlan = (existing.itemsPaid.dietPlan || 0) + Number(tr.itemsPaid.dietPlan);
+          if (Array.isArray(tr.itemsPaid.otherFees)) {
+            existing.itemsPaid.otherFees = [...(existing.itemsPaid.otherFees || []), ...tr.itemsPaid.otherFees];
+          }
+        }
+      }
+    });
+
+    finalTxList = Array.from(groupedTx.values()).map(tr => {
+      const tSet = tr.types;
+      let combinedType = Array.from(tSet).join(' / ');
+      if (tSet.has('Consultation') && tSet.has('Diet Plan')) combinedType = 'Consultation / Diet Plan';
+      if (tSet.has('Consultation & Medicine Fee') && tSet.has('Diet Plan')) combinedType = 'Consultation & Medicine Fee / Diet Plan';
+      if (tSet.has('Medicine Fee') && tSet.has('Diet Plan')) combinedType = 'Medicine Fee / Diet Plan';
+      if (tSet.has('Consultation') && tSet.has('Medicine Fee') && tSet.has('Diet Plan')) combinedType = 'Consultation & Medicine Fee / Diet Plan';
+      if (tSet.has('Consultation') && tSet.has('Consultation & Medicine Fee')) combinedType = 'Consultation & Medicine Fee';
+
+      const methodsArr = Array.from(tr.methods).filter(m => m !== 'N/A');
+      return {
+        ...tr,
+        type: combinedType,
+        method: methodsArr.length > 0 ? methodsArr.join(' + ') : 'N/A'
+      };
+    });
+
+    return finalTxList.sort((a, b) => b.timestamp - a.timestamp);
+  }, [filteredRevenuePatients, filteredPharmacyTransactions, filteredMedicineForms, filteredNutritionPlansForRevenue, patients]);

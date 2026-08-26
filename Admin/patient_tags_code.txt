@@ -1,0 +1,53 @@
+Line 24: const renderPatientTags = (patient, activePackageMap) => {
+25:   if (!patient) return null;
+26:   let source = patient.raw?.source || patient.source;
+27:   if (source === 'patients' || source === 'allpatients') {
+28:     source = undefined;
+29:   }
+30:   const followUp = patient.raw?.followUpDate || patient.followUpDate || patient.raw?.medicationDurationEnd || patient.medicationDurationEnd;
+31:   const normSource = (source || '').toLowerCase().trim();
+32:   const rawNormSource = (patient.raw?.source || '').toLowerCase().trim();
+33:   const isOld = !!followUp || normSource === 'old patient' || normSource === 'old_patient' || normSource === 'old' || rawNormSource === 'old patient' || rawNormSource === 'old_patient' || rawNormSource === 'old';
+34:   const isNew = !isOld && source && normSource !== 'old patient' && normSource !== 'old_patient' && normSource !== 'old';
+35:   const isApp = patient.isOnline || 
+36:                 patient._type === 'online' || 
+37:                 normSource === 'appointments' || 
+38:                 normSource === 'online' || 
+39:                 normSource === 'userapp' || 
+40:                 normSource === 'patient app' || 
+41:                 normSource === 'patientapp' || 
+42:                 normSource === 'app' || 
+43:                 rawNormSource === 'appointments' || 
+44:                 rawNormSource === 'online' || 
+45:                 rawNormSource === 'userapp' || 
+46:                 rawNormSource === 'patient app' || 
+47:                 rawNormSource === 'patientapp' || 
+48:                 rawNormSource === 'app';
+49:   const isActive = followUp ? checkIsInDuration(followUp) : false;
+50: 
+51:   
+52:   // Safe normalization of phone number for package lookup
+53:   const cleanPhone = (patient.phone || '').replace(/\D/g, '').slice(-10);
+54:   const hasPkg = patient.packageId || (cleanPhone && activePackageMap && activePackageMap.has(cleanPhone));
+55: 
+56:   return (
+57:     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', verticalAlign: 'middle', textDecoration: 'none', marginLeft: '6px' }}>
+58:       {isNew && (
+59:         <span style={{ fontSize: '9px', background: '#fff1f2', color: '#f43f5e', border: '1px solid #ffe4e6', padding: '1px 4px', borderRadius: '4px', display: 'inline-block', fontWeight: '800' }}>NEW</span>
+60:       )}
+61:       {isApp && (
+62:         <span style={{ fontSize: '9px', background: '#f5f3ff', color: '#7c3aed', border: '1px solid #ddd6fe', padding: '1px 4px', borderRadius: '4px', display: 'inline-block', fontWeight: '800' }}>APP</span>
+63:       )}
+64:       {isOld && (
+65:         isActive ? (
+66:           <span style={{ fontSize: '9px', background: '#fef3c7', color: '#d97706', border: '1px solid #fde68a', padding: '1px 4px', borderRadius: '4px', display: 'inline-block', fontWeight: '800' }}>IN DURATION</span>
+67:         ) : (
+68:           <span style={{ fontSize: '9px', background: '#e0f2fe', color: '#0369a1', border: '1px solid #bae6fd', padding: '1px 4px', borderRadius: '4px', display: 'inline-block', fontWeight: '800' }}>RE-BOOKING</span>
+69:         )
+70:       )}
+71:       {hasPkg && (
+72:         <span style={{ fontSize: '9px', background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0', padding: '1px 4px', borderRadius: '4px', display: 'inline-block', fontWeight: '800' }}>PKG</span>
+73:       )}
+74:     </span>
+75:   );
+76: };

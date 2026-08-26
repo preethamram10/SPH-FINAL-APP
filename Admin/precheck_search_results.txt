@@ -1,0 +1,4 @@
+LoginScreen.js:53: // Check if user is a staff member (with 1.5s timeout to prevent hangs)
+LoginScreen.js:66: new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 1500))
+LoginScreen.js:80: } catch (timeoutErr) {
+LoginScreen.js:81: console.warn('Staff profile check timed out or failed, bypassing pre-check:', timeoutErr);

@@ -1,0 +1,100 @@
+PatientDetails.js:87: const patientName = appt.fullName || appt.patientName || 'Patient';
+PatientDetails.js:124: <title>Payment Receipt - ${patientName}</title>
+PatientDetails.js:166: .section-title { font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+PatientDetails.js:167: .section-title::after { content: ''; flex: 1; height: 1px; background: #e2e8f0; }
+PatientDetails.js:217: <div class="section-title">Patient Details</div>
+PatientDetails.js:219: <div class="info-item"><label>Patient Name</label><span>${patientName}</span></div>
+PatientDetails.js:227: <div class="section-title">Payment Information</div>
+PatientDetails.js:240: <div class="section-title">Fee Breakdown</div>
+PatientDetails.js:279: const patientName = appt.fullName || appt.patientName || 'Patient';
+PatientDetails.js:306: <div class="section-title">Prescribed Medicines</div>
+PatientDetails.js:333: <title>Pharmacy Receipt - ${patientName}</title>
+PatientDetails.js:375: .section-title { font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+PatientDetails.js:376: .section-title::after { content: ''; flex: 1; height: 1px; background: #e2e8f0; }
+PatientDetails.js:449: <div class="section-title">Patient Details</div>
+PatientDetails.js:451: <div class="info-item"><label>Patient Name</label><span>${patientName}</span></div>
+PatientDetails.js:457: <div class="section-title">Payment Information</div>
+PatientDetails.js:516: const patientName = plan.patientName || 'Patient';
+PatientDetails.js:545: <title>Nutrition Service Receipt - ${patientName}</title>
+PatientDetails.js:587: .section-title { font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+PatientDetails.js:588: .section-title::after { content: ''; flex: 1; height: 1px; background: #e2e8f0; }
+PatientDetails.js:661: <div class="section-title">Patient Details</div>
+PatientDetails.js:663: <div class="info-item"><label>Patient Name</label><span>${patientName}</span></div>
+PatientDetails.js:671: <div class="section-title">Payment Information</div>
+PatientDetails.js:684: <div class="section-title">Fee Breakdown</div>
+PatientDetails.js:1081: const patientName = patient.fullName || 'Patient';
+PatientDetails.js:1082: const cleanPatientName = patientName.replace(/[^a-zA-Z0-9]/g, '_');
+PatientDetails.js:1092: dialogTitle: `Receipt – ${patientName}`,
+PatientDetails.js:1154: const patientName = patient.fullName || 'Patient';
+PatientDetails.js:1165: Dear *${patientName}*,
+PatientDetails.js:1170: • *Patient Name:* ${patientName}
+PatientDetails.js:1202: const patientName = patient.fullName || 'Patient';
+PatientDetails.js:1203: const cleanPatientName = patientName.replace(/[^a-zA-Z0-9]/g, '_');
+PatientDetails.js:1213: dialogTitle: `Pharmacy Receipt – ${patientName}`,
+PatientDetails.js:1275: const patientName = patient.fullName || 'Patient';
+PatientDetails.js:1284: Dear *${patientName}*,
+PatientDetails.js:1289: • *Patient Name:* ${patientName}
+PatientDetails.js:1432: patientName: patient?.fullName || 'Patient',
+PatientDetails.js:1467: title: '🥦 30-Day Nutrition Plan Issued!',
+PatientDetails.js:1487: title: '🥦 30-Day Nutrition Plan Issued!',
+PatientDetails.js:1542: patientName: patient?.fullName || 'Patient',
+PatientDetails.js:1543: regId: patient?.registrationId || patient?.regId || patient?.regID || '',
+PatientDetails.js:1544: registrationId: patient?.registrationId || patient?.regId || patient?.regID || '',
+PatientDetails.js:1562: title: '🥦 Nutrition Plan Unlocked!',
+PatientDetails.js:1582: title: '🥦 Nutrition Plan Unlocked!',
+PatientDetails.js:1621: const patientName = nutritionPlan.patientName || 'Patient';
+PatientDetails.js:1622: const cleanPatientName = patientName.replace(/[^a-zA-Z0-9]/g, '_');
+PatientDetails.js:1632: dialogTitle: `Receipt – ${patientName}`,
+PatientDetails.js:1694: const patientName = nutritionPlan.patientName || 'Patient';
+PatientDetails.js:1704: Dear *${patientName}*,
+PatientDetails.js:1709: • *Patient Name:* ${patientName}
+PatientDetails.js:1744: const patientName = nutritionPlan.patientName || 'Patient';
+PatientDetails.js:1760: Dear *${patientName}*,
+PatientDetails.js:1818: patientName: patient?.fullName || 'Online Patient',
+PatientDetails.js:1819: regId: patient?.registrationId || patient?.regId || patient?.regID || '',
+PatientDetails.js:1820: registrationId: patient?.registrationId || patient?.regId || patient?.regID || '',
+PatientDetails.js:1850: const patientNameVal = patient.fullName || 'Patient';
+PatientDetails.js:1859: fullName: patientNameVal,
+PatientDetails.js:1877: patientName: patientNameVal,
+PatientDetails.js:1890: patientName: patientNameVal,
+PatientDetails.js:1976: patientName: patient?.fullName || 'Online Patient',
+PatientDetails.js:1977: regId: patient?.registrationId || patient?.regId || patient?.regID || '',
+PatientDetails.js:1978: registrationId: patient?.registrationId || patient?.regId || patient?.regID || '',
+PatientDetails.js:1993: patientName: patient?.fullName || 'Online Patient',
+PatientDetails.js:1994: regId: patient?.registrationId || patient?.regId || patient?.regID || '',
+PatientDetails.js:1995: registrationId: patient?.registrationId || patient?.regId || patient?.regID || '',
+PatientDetails.js:2010: patientName: patient?.fullName || 'Online Patient',
+PatientDetails.js:2011: regId: patient?.registrationId || patient?.regId || patient?.regID || '',
+PatientDetails.js:2012: registrationId: patient?.registrationId || patient?.regId || patient?.regID || '',
+PatientDetails.js:2160: fullName: apptData.patientName || 'Online Patient',
+PatientDetails.js:2161: regId: 'ONLINE',
+PatientDetails.js:2438: title: asset.fileName || fileName,
+PatientDetails.js:2695: patientName: patient?.fullName || 'Package Patient',
+PatientDetails.js:2696: regId: patient?.registrationId || patient?.regId || patient?.regID || '',
+PatientDetails.js:2697: registrationId: patient?.registrationId || patient?.regId || patient?.regID || '',
+PatientDetails.js:2774: patientName: patient?.fullName || 'Package Patient',
+PatientDetails.js:2795: patientName: patient?.fullName || 'Package Patient',
+PatientDetails.js:2796: regId: patient?.registrationId || patient?.regId || patient?.regID || '',
+PatientDetails.js:2797: registrationId: patient?.registrationId || patient?.regId || patient?.regID || '',
+PatientDetails.js:2919: `Collect ₹${medDiscountReqAmount} (instead of ₹${patient.medicineFeeRequested}) for ${patient.fullName || 'Patient'}.`,
+PatientDetails.js:3338: fullName: patient.fullName || 'Patient',
+PatientDetails.js:3341: regId: patient.registrationId || '',
+PatientDetails.js:3358: patientName: patient.fullName || 'Patient',
+PatientDetails.js:3359: fullName: patient.fullName || 'Patient',
+PatientDetails.js:3379: patientName: patient.fullName || 'Patient',
+PatientDetails.js:3439: {/* Header */}
+PatientDetails.js:3462: <View style={styles.profileHeader}>
+PatientDetails.js:3472: <Text style={styles.patientName}>{patient?.fullName}</Text>
+PatientDetails.js:3508: {patient?.regId ? (
+PatientDetails.js:3509: <Text style={styles.regIdText}>Reg ID: {patient.regId}</Text>
+PatientDetails.js:3761: <View style={styles.sectionHeader}>
+PatientDetails.js:3901: <Menu.Item key={opt} onPress={() => { setPrescriptionDuration(opt); setOpenDurationMenuIndex(null); }} title={opt} titleStyle={{ fontSize: 13, color: COLORS.text }} />
+PatientDetails.js:3932: <Menu.Item key={opt} onPress={() => { handleMedicineChange(index, 'type', opt); setOpenTypeMenuIndex(null); }} title={opt} titleStyle={{ fontSize: 12, color: COLORS.text }} />
+PatientDetails.js:3952: <Menu.Item key={opt} onPress={() => { handleMedicineChange(index, 'dosage', opt); setOpenTimingMenuIndex(null); }} title={opt} titleStyle={{ fontSize: 12, color: COLORS.text }} />
+PatientDetails.js:4044: <Menu.Item onPress={() => { setFollowUpMenuVisible(false); setFollowUpInterval("No Follow-up"); setFollowUpDate(""); }} title="No Follow-up" titleStyle={{ color: '#000000', fontSize: 13 }} />
+PatientDetails.js:4045: <Menu.Item onPress={() => { setFollowUpMenuVisible(false); setFollowUpInterval("1 Month"); const d = new Date(); d.setMonth(d.getMonth() + 1); setFollowUpDate(d.toISOString().split('T')[0]); }} title="1 Month" titleStyle={{ color: '#000000', fontSize: 13 }} />
+PatientDetails.js:4046: <Menu.Item onPress={() => { setFollowUpMenuVisible(false); setFollowUpInterval("2 Months"); const d = new Date(); d.setMonth(d.getMonth() + 2); setFollowUpDate(d.toISOString().split('T')[0]); }} title="2 Months" titleStyle={{ color: '#000000', fontSize: 13 }} />
+PatientDetails.js:4047: <Menu.Item onPress={() => { setFollowUpMenuVisible(false); setFollowUpInterval("3 Months"); const d = new Date(); d.setMonth(d.getMonth() + 3); setFollowUpDate(d.toISOString().split('T')[0]); }} title="3 Months" titleStyle={{ color: '#000000', fontSize: 13 }} />
+PatientDetails.js:4048: <Menu.Item onPress={() => { setFollowUpMenuVisible(false); setFollowUpInterval("4 Months"); const d = new Date(); d.setMonth(d.getMonth() + 4); setFollowUpDate(d.toISOString().split('T')[0]); }} title="4 Months" titleStyle={{ color: '#000000', fontSize: 13 }} />
+PatientDetails.js:4049: <Menu.Item onPress={() => { setFollowUpMenuVisible(false); setFollowUpInterval("5 Months"); const d = new Date(); d.setMonth(d.getMonth() + 5); setFollowUpDate(d.toISOString().split('T')[0]); }} title="5 Months" titleStyle={{ color: '#000000', fontSize: 13 }} />
+PatientDetails.js:4050: <Menu.Item onPress={() => { setFollowUpMenuVisible(false); setFollowUpInterval("6 Months"); const d = new Date(); d.setMonth(d.getMonth() + 6); setFollowUpDate(d.toISOString().split('T')[0]); }} title="6 Months" titleStyle={{ color: '#000000', fontSize: 13 }} />

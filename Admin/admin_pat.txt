@@ -1,0 +1,556 @@
+const filteredRevenuePatients = allRevenueRecords.filter(patient => {
+    if (patient.paymentStatus !== 'paid') return false;
+
+    // 1. Search term match (Name or Phone)
+    const matchesSearch = !revenueSearch.trim() ||
+      (patient.fullName && patient.fullName.toLowerCase().includes(revenueSearch.toLowerCase())) ||
+      (patient.phone && patient.phone.includes(revenueSearch.trim()));
+
+    // 2. Branch match
+    const matchesBranch = isBranchMatchHelper(patient.branchId, patient.branchName, revenueBranchId, branches);
+
+    // 3. Date / Month match
+    let matchesDateRange = true;
+    let rawDateStr = patient.paymentCollectedAt || patient.appointmentDate || patient.completedAt || patient.createdAt || patient.date;
+
+    if (rawDateStr) {
+      let d = parseAnyDateObj(rawDateStr);
+
+      if (d && !isNaN(d.getTime())) {
+        if (revenueDate) {
+          const filterDate = parseHTMLDateToDateObj(revenueDate);
+          if (filterDate) {
+            d.setHours(0, 0, 0, 0);
+            filterDate.setHours(0, 0, 0, 0);
+            if (d.getTime() !== filterDate.getTime()) matchesDateRange = false;
+          }
+        } else if (revenueYear !== 'all') {
+          if (d.getFullYear() !== parseInt(revenueYear, 10)) {
+            matchesDateRange = false;
+          } else if (revenueMonth !== 'all') {
+            if (d.getMonth() + 1 !== parseInt(revenueMonth, 10)) {
+              matchesDateRange = false;
+            }
+          }
+        }
+      } else {
+        if (revenueDate || revenueYear !== 'all') matchesDateRange = false;
+      }
+    } else {
+      if (revenueDate || revenueYear !== 'all') matchesDateRange = false;
+    }
+
+    const matchesSource = revenueSource === 'all' || (patient.source || 'Walk-in') === revenueSource;
+    const matchesMethod = revenueMethod === 'all' || patient.paymentMethod === revenueMethod;
+
+    const docName = patient.doctor || patient.doctorName || patient.assignDoctor || 'N/A';
+    const matchesDoctor = revenueDoctor === 'all' || docName === revenueDoctor;
+
+    let matchesSplit = true;
+    if (revenueSplitType !== 'all') {
+      const hasMed = patient.itemsPaid?.medicine > 0;
+      let rowType = 'Consultation';
+      if (hasMed) {
+        rowType = 'Consultation & Medicine Fee';
+      }
+      matchesSplit = rowType === revenueSplitType;
+    }
+
+    let matchesAmount = true;
+    if (revenueAmountRange !== 'all') {
+      const consAmt = Number(patient.itemsPaid?.consultation !== undefined ? patient.itemsPaid.consultation : (patient.paymentAmount || 0));
+      const medAmt = Number(patient.itemsPaid?.medicine || 0);
+      const dietAmt = Number(patient.itemsPaid?.dietPlan || 0);
+      matchesAmount = checkAmountRange(consAmt, revenueAmountRange) || checkAmountRange(medAmt, revenueAmountRange) || checkAmountRange(dietAmt, revenueAmountRange);
+    }
+
+    return matchesSearch && matchesBranch && matchesDateRange && matchesSource && matchesMethod && matchesDoctor && matchesSplit && matchesAmount;
+  });
+
+  const getExactPatientAmount = (p) => {
+    if (p.paymentAmount !== undefined && p.paymentAmount !== null && p.paymentAmount !== '') {
+      return Number(p.paymentAmount);
+    }
+    if (p.amountPaid !== undefined && p.amountPaid !== null && p.amountPaid !== '') {
+      return Number(p.amountPaid);
+    }
+    if (p.itemsPaid?.consultation !== undefined) {
+      return Number(p.itemsPaid.consultation);
+    }
+    return 0; // Removed legacy 600 fallback
+  };
+
+  // Calculate dynamic stats across paid patients inside the filtered list
+  const paidPatients = filteredRevenuePatients.filter(p => p.paymentStatus === 'paid');
+  const totalCollectedFees = paidPatients.reduce((sum, p) => {
+    const consAmt = p.itemsPaid?.consultation !== undefined ? Number(p.itemsPaid.consultation) : getExactPatientAmount(p);
+    return sum + (checkAmountRange(consAmt, revenueAmountRange) ? consAmt : 0);
+  }, 0);
+
+  const medicineFeeCollected = paidPatients.reduce((sum, p) => {
+    const medAmt = Number(p.itemsPaid?.medicine || 0);
+    return sum + (checkAmountRange(medAmt, revenueAmountRange) ? medAmt : 0);
+  }, 0);
+
+  const getPatientTotalPaid = (p) => {
+    let total = 0;
+    if (p.itemsPaid) {
+      const consAmt = Number(p.itemsPaid.consultation || 0);
+      if (checkAmountRange(consAmt, revenueAmountRange)) total += consAmt;
+      const medAmt = Number(p.itemsPaid.medicine || 0);
+      if (checkAmountRange(medAmt, revenueAmountRange)) total += medAmt;
+      const dietAmt = Number(p.itemsPaid.dietPlan || 0);
+      if (checkAmountRange(dietAmt, revenueAmountRange)) total += dietAmt;
+    } else {
+      const pAmt = getExactPatientAmount(p);
+      if (checkAmountRange(pAmt, revenueAmountRange)) total += pAmt;
+    }
+    return total;
+  };
+
+
+
+  // Pharmacy Revenue Calculations
+  const filteredPharmacyTransactions = medicineTransactions.filter(tr => {
+    if (tr.type === 'consultation') return false;
+    const matchesSearch = !revenueSearch.trim() ||
+      (tr.patientName && tr.patientName.toLowerCase().includes(revenueSearch.toLowerCase())) ||
+      (tr.patientPhone && tr.patientPhone.includes(revenueSearch.trim()));
+
+    const matchesBranch = isBranchMatchHelper(tr.branchId, tr.branchName, revenueBranchId, branches);
+
+    let matchesDate = true;
+    if (tr.timestamp) {
+      let d = parseAnyDateObj(tr.timestamp);
+
+      if (d && !isNaN(d.getTime())) {
+        if (revenueDate) {
+          const filterDate = parseHTMLDateToDateObj(revenueDate);
+          if (filterDate) {
+            d.setHours(0, 0, 0, 0);
+            filterDate.setHours(0, 0, 0, 0);
+            if (d.getTime() !== filterDate.getTime()) matchesDate = false;
+          }
+        } else if (revenueYear !== 'all') {
+          if (d.getFullYear() !== parseInt(revenueYear, 10)) {
+            matchesDate = false;
+          } else if (revenueMonth !== 'all') {
+            if (d.getMonth() + 1 !== parseInt(revenueMonth, 10)) {
+              matchesDate = false;
+            }
+          }
+        }
+      } else {
+        if (revenueDate || revenueYear !== 'all') matchesDate = false;
+      }
+    } else {
+      if (revenueDate || revenueYear !== 'all') matchesDate = false;
+    }
+
+    const matchesSource = revenueSource === 'all' || (tr.source || 'Walk-in') === revenueSource;
+    const matchesMethod = revenueMethod === 'all' || tr.method === revenueMethod;
+
+    const patientDoc = tr.patientId ? patients.find(p => p.id === tr.patientId) : null;
+    const docName = tr.doctor || tr.doctorName || tr.prescribedBy || patientDoc?.doctor || patientDoc?.doctorName || patientDoc?.assignDoctor || 'N/A';
+    const matchesDoctor = revenueDoctor === 'all' || docName === revenueDoctor;
+
+    let matchesSplit = true;
+    if (revenueSplitType !== 'all') {
+      const rType = tr.type === 'nutrition' ? 'Diet Plan' : 'Consultation & Medicine Fee';
+      matchesSplit = rType === revenueSplitType;
+    }
+
+    let matchesAmount = true;
+    if (revenueAmountRange !== 'all') {
+      matchesAmount = checkAmountRange(Number(tr.amount) || 0, revenueAmountRange);
+    }
+
+    return matchesSearch && matchesBranch && matchesDate && matchesSource && matchesMethod && matchesDoctor && matchesSplit && matchesAmount;
+  });
+
+  const pharmacyTotal = filteredPharmacyTransactions.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+  const pharmacyCash = filteredPharmacyTransactions.filter(t => t.method === 'cash').reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+  const pharmacyUpi = filteredPharmacyTransactions.filter(t => ['upi', 'phonepe', 'gpay'].includes(t.method)).reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+  const pharmacyCard = filteredPharmacyTransactions.filter(t => t.method === 'card').reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+
+  // Filter medicine forms based on active dashboard selections
+  const filteredMedicineForms = medicineForms.filter(form => {
+    const matchesSearch = !revenueSearch.trim() ||
+      (form.patientName && form.patientName.toLowerCase().includes(revenueSearch.toLowerCase())) ||
+      (form.phone && form.phone.includes(revenueSearch.trim()));
+
+    const matchesBranch = isBranchMatchHelper(form.branchId, form.branchName, revenueBranchId, branches);
+
+    let matchesDate = true;
+    let rawDateStr = form.createdAt || form.formDate;
+
+    if (rawDateStr) {
+      let d = parseAnyDateObj(rawDateStr);
+
+      if (d && !isNaN(d.getTime())) {
+        if (revenueDate) {
+          const filterDate = parseHTMLDateToDateObj(revenueDate);
+          if (filterDate) {
+            d.setHours(0, 0, 0, 0);
+            filterDate.setHours(0, 0, 0, 0);
+            if (d.getTime() !== filterDate.getTime()) matchesDate = false;
+          }
+        } else if (revenueYear !== 'all') {
+          if (d.getFullYear() !== parseInt(revenueYear, 10)) {
+            matchesDate = false;
+          } else if (revenueMonth !== 'all') {
+            if (d.getMonth() + 1 !== parseInt(revenueMonth, 10)) {
+              matchesDate = false;
+            }
+          }
+        }
+      } else {
+        if (revenueDate || revenueYear !== 'all') matchesDate = false;
+      }
+    } else {
+      if (revenueDate || revenueYear !== 'all') matchesDate = false;
+    }
+
+    const patientDoc = form.patientId ? patients.find(p => p.id === form.patientId) : null;
+    const docName = form.doctor || form.doctorName || patientDoc?.doctor || patientDoc?.doctorName || patientDoc?.assignDoctor || 'N/A';
+    const matchesDoctor = revenueDoctor === 'all' || docName === revenueDoctor;
+
+    let matchesSplit = true;
+    if (revenueSplitType !== 'all') {
+      matchesSplit = 'Consultation & Medicine Fee' === revenueSplitType;
+    }
+
+    let matchesAmount = true;
+    if (revenueAmountRange !== 'all') {
+      matchesAmount = checkAmountRange(Number(form.amountPaid) || 0, revenueAmountRange);
+    }
+
+    return matchesSearch && matchesBranch && matchesDate && matchesDoctor && matchesSplit && matchesAmount;
+  });
+
+  // Filter nutrition plans based on active dashboard selections
+  const filteredNutritionPlansForRevenue = nutritionPlans.filter(plan => {
+    if (plan.paymentStatus !== 'paid') return false;
+
+    const matchesSearch = !revenueSearch.trim() ||
+      (plan.patientName && plan.patientName.toLowerCase().includes(revenueSearch.toLowerCase())) ||
+      (plan.patientPhone && plan.patientPhone.includes(revenueSearch.trim()));
+
+    const matchesBranch = isBranchMatchHelper(plan.branchId, plan.branchName, revenueBranchId, branches);
+
+    let matchesDate = true;
+    let rawDateStr = plan.paymentCollectedAt || plan.createdAt;
+
+    if (rawDateStr) {
+      let d = parseAnyDateObj(rawDateStr);
+      if (d && !isNaN(d.getTime())) {
+        if (revenueDate) {
+          const filterDate = parseHTMLDateToDateObj(revenueDate);
+          if (filterDate) {
+            d.setHours(0, 0, 0, 0);
+            filterDate.setHours(0, 0, 0, 0);
+            if (d.getTime() !== filterDate.getTime()) matchesDate = false;
+          }
+        } else if (revenueYear !== 'all') {
+          if (d.getFullYear() !== parseInt(revenueYear, 10)) {
+            matchesDate = false;
+          } else if (revenueMonth !== 'all') {
+            if (d.getMonth() + 1 !== parseInt(revenueMonth, 10)) {
+              matchesDate = false;
+            }
+          }
+        }
+      } else {
+        if (revenueDate || revenueYear !== 'all') matchesDate = false;
+      }
+    } else {
+      if (revenueDate || revenueYear !== 'all') matchesDate = false;
+    }
+
+    const patientDoc = plan.patientId ? patients.find(p => p.id === plan.patientId) : null;
+    const docName = plan.doctorName || patientDoc?.doctor || patientDoc?.doctorName || patientDoc?.assignDoctor || 'N/A';
+    const matchesDoctor = revenueDoctor === 'all' || docName === revenueDoctor;
+
+    let matchesSplit = true;
+    if (revenueSplitType !== 'all') {
+      matchesSplit = revenueSplitType === 'Diet Plan';
+    }
+
+    const amt = Number(plan.amountPaid || plan.amount) || 0;
+    let matchesAmount = true;
+    if (revenueAmountRange !== 'all') {
+      matchesAmount = checkAmountRange(amt, revenueAmountRange);
+    }
+
+    const matchesSource = revenueSource === 'all' || (plan.source || 'Walk-in') === revenueSource;
+    const matchesMethod = revenueMethod === 'all' || (plan.paymentMethod || 'N/A') === revenueMethod;
+
+    return matchesSearch && matchesBranch && matchesDate && matchesDoctor && matchesSplit && matchesAmount && matchesSource && matchesMethod;
+  });
+
+  const medFormsTotalRevenue = filteredMedicineForms.reduce((sum, f) => sum + (Number(f.amountPaid) || 0), 0);
+  const medFormsTotalMonths = filteredMedicineForms.reduce((sum, f) => sum + (Number(f.duration) || 0), 0);
+  const avgRevPerMonthOverall = medFormsTotalMonths > 0 ? (medFormsTotalRevenue / medFormsTotalMonths) : 0;
+
+  // Branch-wise Average Revenue Per Month
+  const branchWiseAvgRevenue = branches.map(b => {
+    const formsForBranch = filteredMedicineForms.filter(f => f.branchId === b.id || f.branchName === b.name);
+    const revenue = formsForBranch.reduce((sum, f) => sum + (Number(f.amountPaid) || 0), 0);
+    const months = formsForBranch.reduce((sum, f) => sum + (Number(f.duration) || 0), 0);
+    const avg = months > 0 ? (revenue / months) : 0;
+    return {
+      branchId: b.id,
+      branchName: b.name,
+      revenue,
+      months,
+      avg
+    };
+  }).filter(b => b.revenue > 0);
+
+  // Doctor-wise Average Revenue Per Month
+  const doctorWiseAvgRevenue = (() => {
+    const docStats = {};
+    filteredMedicineForms.forEach(f => {
+      const docName = f.doctorName || 'Unknown Doctor';
+      if (!docStats[docName]) {
+        docStats[docName] = { revenue: 0, months: 0 };
+      }
+      docStats[docName].revenue += (Number(f.amountPaid) || 0);
+      docStats[docName].months += (Number(f.duration) || 0);
+    });
+
+    return Object.entries(docStats).map(([doctorName, stats]) => {
+      const avg = stats.months > 0 ? (stats.revenue / stats.months) : 0;
+      return {
+        doctorName,
+        revenue: stats.revenue,
+        months: stats.months,
+        avg
+      };
+    }).sort((a, b) => b.revenue - a.revenue);
+  })();
+
+  const displayPharmacyTransactions = Object.values(
+    filteredPharmacyTransactions.reduce((acc, tr) => {
+      let dateStr = 'unknown';
+      let fullDateTime = 'N/A';
+      if (tr.timestamp) {
+        if (tr.timestamp.toDate) {
+          fullDateTime = tr.timestamp.toDate().toLocaleString();
+          dateStr = tr.timestamp.toDate().toLocaleDateString();
+        } else {
+          fullDateTime = safeDateDisplay(tr.timestamp) || 'N/A';
+          dateStr = fullDateTime !== 'N/A' ? fullDateTime.split(',')[0] : 'unknown';
+        }
+      }
+      const key = `${tr.patientName}_${dateStr}`;
+
+      if (!acc[key]) {
+        acc[key] = {
+          ...tr,
+          displayAmount: Number(tr.amount) || 0,
+          methods: new Set([(tr.method || 'N/A').toUpperCase()]),
+          fullDateTime
+        };
+      } else {
+        acc[key].displayAmount += Number(tr.amount) || 0;
+        acc[key].methods.add((tr.method || 'N/A').toUpperCase());
+      }
+      return acc;
+    }, {})
+  ).map(item => ({
+    ...item,
+    methodDisplay: Array.from(item.methods).join(' + ')
+  }));
+
+  const handlePharmacyExportToExcel = () => {
+    if (displayPharmacyTransactions.length === 0) {
+      alert("No data available to export.");
+      return;
+    }
+    const headers = ["S.N.O", "Patient Name", "Branch", "Amount", "Method", "Date / Time", "Status"];
+
+    const rows = displayPharmacyTransactions.map((tr, index) => {
+      const sno = index + 1;
+      const name = tr.patientName || "N/A";
+      const branch = tr.branchName || "Main Branch";
+      const amount = tr.displayAmount || 0;
+      const method = tr.methodDisplay || "N/A";
+      const dateTime = tr.fullDateTime;
+      const status = "PAID";
+
+      return [
+        sno,
+        `"${name.replace(/"/g, '""')}"`,
+        `"${branch.replace(/"/g, '""')}"`,
+        amount,
+        `"${method.replace(/"/g, '""')}"`,
+        `"${dateTime.replace(/"/g, '""')}"`,
+        `"${status.replace(/"/g, '""')}"`
+      ];
+    });
+
+    const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    const dateSuffix = pharmacyDate ? pharmacyDate : (pharmacyYear !== 'all' ? `${pharmacyYear}_${pharmacyMonth}` : 'all_time');
+    link.setAttribute("download", `pharmacy_revenue_${dateSuffix}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const isPackageActive = (startDateStr, endDateStr) => {
+    if (!startDateStr || !endDateStr) return false;
+    const today = new Date().toISOString().split('T')[0];
+    return today >= startDateStr && today <= endDateStr;
+  };
+
+  const getMemberBranchName = (member) => {
+    if (member.branchName) return member.branchName;
+    const patientObj = patients.find(p => p.phone === member.patientMobile || p.id === member.patientId);
+    return patientObj?.branchName || 'Unknown';
+  };
+  const handlePackageExportToCSV = () => {
+    const displayMembers = packageMembers.filter(member => {
+      const matchesSearch = !packagesSearch.trim() ||
+        (member.patientName && member.patientName.toLowerCase().includes(packagesSearch.toLowerCase())) ||
+        (member.patientMobile && member.patientMobile.includes(packagesSearch.trim()));
+
+      const branchObj = branches.find(b => b.id === packagesBranchId);
+      const memberBranchName = getMemberBranchName(member);
+      const matchesBranch = packagesBranchId === 'all' ||
+        member.branchId === packagesBranchId ||
+        (memberBranchName && branchObj && memberBranchName === branchObj.name);
+
+      const isActive = isPackageActive(member.startDate, member.endDate);
+      const matchesStatus = packagesStatus === 'all' ||
+        (packagesStatus === 'active' && isActive) ||
+        (packagesStatus === 'expired' && !isActive);
+
+      return matchesSearch && matchesBranch && matchesStatus;
+    });
+
+    if (displayMembers.length === 0) {
+      alert("No data available to export.");
+      return;
+    }
+
+    const headers = ["S.N.O", "Patient Name", "Mobile", "Start Date", "End Date", "Total Cost", "Paid Amount", "Balance Amount", "Registered Branch", "Status"];
+
+    const rows = displayMembers.map((member, index) => {
+      const sno = index + 1;
+      const name = member.patientName || "N/A";
+      const mobile = member.patientMobile || "N/A";
+      const startDate = member.startDate || "N/A";
+      const endDate = member.endDate || "N/A";
+      const total = member.totalAmount || 0;
+      const paid = member.paidAmount || 0;
+      const balance = member.balanceAmount !== undefined ? member.balanceAmount : (total - paid);
+      const branch = getMemberBranchName(member);
+      const status = isPackageActive(member.startDate, member.endDate) ? "ACTIVE" : "EXPIRED";
+
+      return [
+        sno,
+        `"${name.replace(/"/g, '""')}"`,
+        `"${mobile.replace(/"/g, '""')}"`,
+        `"${startDate}"`,
+        `"${endDate}"`,
+        total,
+        paid,
+        balance,
+        `"${branch.replace(/"/g, '""')}"`,
+        `"${status}"`
+      ];
+    });
+
+    const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `package_members_export.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+
+
+  const handleExportCurrentPage = () => {
+    if (currentPatients.length === 0) {
+      alert("No data available to export.");
+      return;
+    }
+    const headers = ["S.N.O", "Reg ID", "Patient Name", "Phone", "Branch", "Subject", "Doctor", "Date"];
+    const rows = currentPatients.map((patient, index) => {
+      const sno = indexOfFirstPatient + index + 1;
+      const regId = patient.registrationId || patient.regId || patient.regID || (patient.id && patient.id.startsWith('WK') ? patient.id : null) || "N/A";
+      const name = patient.fullName || patient.patientName || "N/A";
+      const phone = patient.phone || patient.patientPhone || patient.phoneNumber || patient.contact || "N/A";
+      const branch = patient.branchName || "Unknown";
+      const subject = patient.subject || "N/A";
+      const doctor = patient.doctor || "N/A";
+      const dateTime = getSafeDisplayDate(patient.appointmentDate);
+
+      return [
+        sno,
+        `"${regId.replace(/"/g, '""')}"`,
+        `"${name.replace(/"/g, '""')}"`,
+        `"${phone.replace(/"/g, '""')}"`,
+        `"${branch.replace(/"/g, '""')}"`,
+        `"${subject.replace(/"/g, '""')}"`,
+        `"${doctor.replace(/"/g, '""')}"`,
+        `"${dateTime.replace(/"/g, '""')}"`
+      ];
+    });
+
+    const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    const dateStr = new Date().toISOString().split('T')[0];
+    link.setAttribute("download", `global_patients_page_${safePatientsCurrentPage}_${dateStr}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Global Patient List Calculations
+  const filteredGlobalPatients = patients.filter(patient => {
+    const matchesBranch = selectedBranchId === 'all' || patient.branchId === selectedBranchId;
+    const query = patientsSearch.toLowerCase().trim();
+    return matchesBranch && (!query ||
+      (patient.fullName && patient.fullName.toLowerCase().includes(query)) ||
+      (patient.phone && patient.phone.includes(query)) ||
+      (patient.registrationId && patient.registrationId.toLowerCase().includes(query)) ||
+      (patient.doctor && patient.doctor.toLowerCase().includes(query)) ||
+      (patient.subject && patient.subject.toLowerCase().includes(query))
+    );
+  });
+
+  const sortedGlobalPatients = [...filteredGlobalPatients].sort((a, b) => {
+    const dateA = a.appointmentDate ? new Date(a.appointmentDate) : new Date(0);
+    const dateB = b.appointmentDate ? new Date(b.appointmentDate) : new Date(0);
+    return dateB - dateA;
+  });
+
+  const totalPatientPages = Math.ceil(sortedGlobalPatients.length / patientsPerPage) || 1;
+  const safePatientsCurrentPage = Math.min(patientsCurrentPage, totalPatientPages);
+  const indexOfLastPatient = safePatientsCurrentPage * patientsPerPage;
+  const indexOfFirstPatient = indexOfLastPatient - patientsPerPage;
+  const currentPatients = sortedGlobalPatients.slice(indexOfFirstPatient, indexOfLastPatient);
+
+  useEffect(() => {
+    if (patientsCurrentPage > totalPatientPages) {
+      setPatientsCurrentPage(totalPatientPages);
+    }
+  }, [patientsSearch, selectedBranchId, totalPatientPages, patientsCurrentPage]);

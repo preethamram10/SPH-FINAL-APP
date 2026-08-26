@@ -1,0 +1,28 @@
+PatientDetails.js:962: const [patient, setPatient] = useState(null);
+PatientDetails.js:1056: const [patientFolders, setPatientFolders] = useState([]);
+PatientDetails.js:1904: // 1. Update allpatients document
+PatientDetails.js:1905: const allPatientsRef = doc(db, 'allpatients', patientId);
+PatientDetails.js:1966: // 1. Update allpatients document
+PatientDetails.js:1967: const allPatientsRef = doc(db, 'allpatients', patientId);
+PatientDetails.js:2046: // 1. Query 'allpatients' by exact phone
+PatientDetails.js:2048: collection(db, 'allpatients'),
+PatientDetails.js:2055: history.push({ id: docSnap.id, _collection: 'allpatients', ...docSnap.data() });
+PatientDetails.js:2059: // 2. Query 'patient_list' by exact phone
+PatientDetails.js:2061: collection(db, 'patient_list'),
+PatientDetails.js:2067: history.push({ id: docSnap.id, _collection: 'patient_list', ...docSnap.data() });
+PatientDetails.js:2074: collection(db, 'allpatients'),
+PatientDetails.js:2081: history.push({ id: docSnap.id, _collection: 'allpatients', ...docSnap.data() });
+PatientDetails.js:2086: collection(db, 'patient_list'),
+PatientDetails.js:2092: history.push({ id: docSnap.id, _collection: 'patient_list', ...docSnap.data() });
+PatientDetails.js:2134: const allPatientRef = doc(db, 'allpatients', patientId);
+PatientDetails.js:2138: data = { ...allPatientSnap.data(), firestoreCollection: 'allpatients' };
+PatientDetails.js:2255: setPatient({ id: docSnap.id, ...data, _type: matchedType, firestoreCollection: matchedType === 'walkin' ? 'patients' : (matchedType === 'unified_appointment' ? 'allpatients' : 'appointments') });
+PatientDetails.js:2840: const activeCollection = patient?.firestoreCollection || 'allpatients';
+PatientDetails.js:2847: if (activeCollection === 'allpatients') {
+PatientDetails.js:2871: const qAll = query(collection(db, 'allpatients'), where('phone', '==', cleanPhone));
+PatientDetails.js:2876: await updateDoc(doc(db, 'allpatients', docSnap.id), {
+PatientDetails.js:2883: console.warn('Sync status to allpatients failed:', err);
+PatientDetails.js:3326: // 1. Update allpatients document
+PatientDetails.js:3327: const allPatientsRef = doc(db, 'allpatients', patientId);
+PatientDetails.js:3335: // Log to patient_list for historical visits tracking
+PatientDetails.js:3336: await addDoc(collection(db, 'patient_list'), {

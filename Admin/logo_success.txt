@@ -1,0 +1,1 @@
+App icon base64 successfully injected!

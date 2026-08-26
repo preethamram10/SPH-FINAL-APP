@@ -1,0 +1,3 @@
+ADMIN FILE: Admin\src\pages\hr\HRBookAppointment.jsx
+ADMIN FILE: Admin\src\pages\reception\ReceptionDashboard.jsx
+STAFF FILE: staff\src\screens\reception\RegisterPatient.js

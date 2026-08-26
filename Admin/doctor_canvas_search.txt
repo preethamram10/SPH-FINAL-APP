@@ -1,0 +1,24 @@
+DoctorDashboard.jsx:18: import SignatureCanvas from 'react-signature-canvas';
+DoctorDashboard.jsx:430: const sigCanvas = useRef(null);
+DoctorDashboard.jsx:431: const [drawingMode, setDrawingMode] = useState('pen');
+DoctorDashboard.jsx:1415: if (sigCanvas.current && sigCanvas.current.clear) {
+DoctorDashboard.jsx:1416: sigCanvas.current.clear();
+DoctorDashboard.jsx:1422: if (!sigCanvas.current || sigCanvas.current.isEmpty()) {
+DoctorDashboard.jsx:1423: alert("Canvas is empty. Please draw something before saving.");
+DoctorDashboard.jsx:1428: const dataURL = sigCanvas.current.getCanvas().toDataURL('image/png');
+DoctorDashboard.jsx:1457: sigCanvas.current.clear();
+DoctorDashboard.jsx:1460: console.error("Error saving drawing:", e);
+DoctorDashboard.jsx:1461: alert("Failed to save drawing.");
+DoctorDashboard.jsx:1469: const hasCanvas = sigCanvas.current && !sigCanvas.current.isEmpty();
+DoctorDashboard.jsx:1470: if (!prescriptionText.trim() && prescriptionFiles.length === 0 && !hasCanvas) {
+DoctorDashboard.jsx:1487: if (sigCanvas.current && !sigCanvas.current.isEmpty()) {
+DoctorDashboard.jsx:1488: const dataURL = sigCanvas.current.getCanvas().toDataURL('image/png');
+DoctorDashboard.jsx:3751: <button type="button" onClick={() => setDrawingMode('pen')} style={{ padding: '6px 12px', fontSize: '13px', fontWeight: '600', color: drawingMode === 'pen' ? '#fff' : '#475569', backgroundColor: drawingMode === 'pen' ? '#298FCA' : '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+DoctorDashboard.jsx:3754: <button type="button" onClick={() => setDrawingMode('eraser')} style={{ padding: '6px 12px', fontSize: '13px', fontWeight: '600', color: drawingMode === 'eraser' ? '#fff' : '#475569', backgroundColor: drawingMode === 'eraser' ? '#ef4444' : '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+DoctorDashboard.jsx:3757: <button type="button" onClick={() => { if (sigCanvas.current) sigCanvas.current.clear(); }} style={{ padding: '6px 12px', fontSize: '13px', fontWeight: '600', color: '#64748b', backgroundColor: '#e2e8f0', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+DoctorDashboard.jsx:3766: <SignatureCanvas
+DoctorDashboard.jsx:3767: ref={sigCanvas}
+DoctorDashboard.jsx:3768: penColor={drawingMode === 'eraser' ? '#ffffff' : '#0f172a'}
+DoctorDashboard.jsx:3769: minWidth={drawingMode === 'eraser' ? 15 : 1}
+DoctorDashboard.jsx:3770: maxWidth={drawingMode === 'eraser' ? 20 : 2.5}
+DoctorDashboard.jsx:3771: canvasProps={{ className: 'sigCanvas', style: { width: '100%', height: '350px', backgroundColor: '#fff', cursor: drawingMode === 'eraser' ? 'cell' : 'crosshair', display: 'block' } }}

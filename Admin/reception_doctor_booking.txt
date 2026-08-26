@@ -1,0 +1,150 @@
+ReceptionDashboard.jsx:351: const getOtherBranchAvailability = (doctor, selectedBranchName, dateObj) => {
+ReceptionDashboard.jsx:352: if (!doctor || !dateObj || !selectedBranchName) return '';
+ReceptionDashboard.jsx:361: if (normalizeBranchName(t.branch) === normalizeBranchName(selectedBranchName)) return;
+ReceptionDashboard.jsx:853: const [selectedNutritionPlan, setSelectedNutritionPlan] = useState(null);
+ReceptionDashboard.jsx:855: const [selectedNutritionPayPlan, setSelectedNutritionPayPlan] = useState(null);
+ReceptionDashboard.jsx:893: const [selectedViewPlan, setSelectedViewPlan] = useState(null);
+ReceptionDashboard.jsx:1107: if (!selectedNutritionPlan) return;
+ReceptionDashboard.jsx:1115: }, [editNutritionHeight, editNutritionWeight, selectedNutritionPlan]);
+ReceptionDashboard.jsx:1118: if (!selectedNutritionPlan) return;
+ReceptionDashboard.jsx:1150: }, [editNutritionDisorders, editNutritionDeficiencies, selectedNutritionPlan]);
+ReceptionDashboard.jsx:1243: const filtered = doctors.filter(docObj => isDoctorScheduledAtBranchOnDate(docObj, rescheduleBranch, checkDate));
+ReceptionDashboard.jsx:1256: const [selectedPatientFile, setSelectedPatientFile] = useState(null);
+ReceptionDashboard.jsx:1288: const [selectedFolderWeb, setSelectedFolderWeb] = useState(null);
+ReceptionDashboard.jsx:1319: // Auto-load or initialize diet plan for selected patient
+ReceptionDashboard.jsx:1321: if (!selectedPatientFile || consultationSubTab !== 'nutrition') {
+ReceptionDashboard.jsx:1326: const cleanPatientFilePhone = (selectedPatientFile.phone || '').replace(/\D/g, '').slice(-10);
+ReceptionDashboard.jsx:1329: return p.patientId === selectedPatientFile.id ||
+ReceptionDashboard.jsx:1330: p.patientId === selectedPatientFile.patientId ||
+ReceptionDashboard.jsx:1341: // If selectedNutritionPlan is already set and matches this patient, do nothing to prevent overwriting user edits
+ReceptionDashboard.jsx:1342: if (selectedNutritionPlan) {
+ReceptionDashboard.jsx:1343: const cleanSelPlanPhone = (selectedNutritionPlan.patientPhone || '').replace(/\D/g, '').slice(-10);
+ReceptionDashboard.jsx:1346: selectedNutritionPlan.patientId === selectedPatientFile.id ||
+ReceptionDashboard.jsx:1347: selectedNutritionPlan.patientId === selectedPatientFile.patientId;
+ReceptionDashboard.jsx:1357: setEditNutritionAge(latestPlan.age || selectedPatientFile.age || '30');
+ReceptionDashboard.jsx:1358: setEditNutritionHeight(latestPlan.height || selectedPatientFile.height || '');
+ReceptionDashboard.jsx:1359: setEditNutritionWeight(latestPlan.weight || selectedPatientFile.weight || '');
+ReceptionDashboard.jsx:1371: const ageVal = parseInt(selectedPatientFile.age || '30', 10) || 30;
+ReceptionDashboard.jsx:1375: patientId: selectedPatientFile.id || selectedPatientFile.patientId,
+ReceptionDashboard.jsx:1376: patientName: selectedPatientFile.fullName,
+ReceptionDashboard.jsx:1377: patientPhone: selectedPatientFile.phone,
+ReceptionDashboard.jsx:1378: age: selectedPatientFile.age || '30',
+ReceptionDashboard.jsx:1379: height: selectedPatientFile.height || '',
+ReceptionDashboard.jsx:1380: weight: selectedPatientFile.weight || '',
+ReceptionDashboard.jsx:1405: }, [selectedPatientFile, consultationSubTab, nutritionPlans]);
+ReceptionDashboard.jsx:1409: if (!selectedPatientFile) {
+ReceptionDashboard.jsx:1413: const cleanPhone = (selectedPatientFile.phone || '').replace(/\D/g, '').slice(-10);
+ReceptionDashboard.jsx:1414: const pkgId = selectedPatientFile.packageId || (cleanPhone ? activePackageMap.get(cleanPhone) : null);
+ReceptionDashboard.jsx:1434: }, [selectedPatientFile, activePackageMap]);
+ReceptionDashboard.jsx:1438: if (!selectedNutritionPlan || selectedNutritionPlan.paymentStatus === 'paid') {
+ReceptionDashboard.jsx:1442: if (!selectedNutritionPlan.isNew && editNutritionMeals && editNutritionMeals.length > 0) {
+ReceptionDashboard.jsx:1448: }, [editNutritionAge, editNutritionDeficiencies, editNutritionDisorders, selectedNutritionPlan?.isNew]);
+ReceptionDashboard.jsx:1452: if (!selectedPatientFile || !selectedPatientFile.phone) {
+ReceptionDashboard.jsx:1457: const cleanPhone = selectedPatientFile.phone.replace(/\D/g, '').slice(-10);
+ReceptionDashboard.jsx:1478: }, [selectedPatientFile]);
+ReceptionDashboard.jsx:1483: if (!name || !selectedPatientFile?.phone) return;
+ReceptionDashboard.jsx:1484: const cleanPhone = selectedPatientFile.phone.replace(/\D/g, '').slice(-10);
+ReceptionDashboard.jsx:1539: const cleanPhone = selectedPatientFile.phone.replace(/\D/g, '').slice(-10);
+ReceptionDashboard.jsx:1564: const cleanPhone = selectedPatientFile.phone.replace(/\D/g, '').slice(-10);
+ReceptionDashboard.jsx:1583: if (!selectedPatientFile?.phone) return;
+ReceptionDashboard.jsx:1584: const cleanPhone = selectedPatientFile.phone.replace(/\D/g, '').slice(-10);
+ReceptionDashboard.jsx:1610: if (!selectedPatientFile?.phone) return;
+ReceptionDashboard.jsx:1611: const cleanPhone = selectedPatientFile.phone.replace(/\D/g, '').slice(-10);
+ReceptionDashboard.jsx:1631: const cleanPhone = selectedPatientFile.phone.replace(/\D/g, '').slice(-10);
+ReceptionDashboard.jsx:1727: const availableDoctors = doctors.filter(d => {
+ReceptionDashboard.jsx:2003: const [selectedRequest, setSelectedRequest] = useState(null);
+ReceptionDashboard.jsx:2021: const [selectedBill, setSelectedBill] = useState(null);
+ReceptionDashboard.jsx:2069: if (selectedBill) {
+ReceptionDashboard.jsx:2071: const followUpDate = selectedBill?.raw?.followUpDate || selectedBill?.followUpDate;
+ReceptionDashboard.jsx:2073: const doctorExplicitlySetConsultFee = selectedBill?.consultationFee !== undefined && selectedBill?.consultationFee !== null;
+ReceptionDashboard.jsx:2074: const docConsultFee = doctorExplicitlySetConsultFee ? Number(selectedBill.consultationFee) : null;
+ReceptionDashboard.jsx:2075: const docMedFee = selectedBill?.medicineFeeRequested !== undefined && selectedBill?.medicineFeeRequested !== null ? Number(selectedBill.medicineFeeRequested) : 0;
+ReceptionDashboard.jsx:2077: const itemsPaidFromDoc = selectedBill?.itemsPaid || selectedBill?.raw?.itemsPaid || null;
+ReceptionDashboard.jsx:2082: const resolvedConsultFee = docConsultFee !== null ? docConsultFee : (itemsConsultFee !== null ? itemsConsultFee : (selectedBill?.paymentAmount ? Number(selectedBill.paymentAmount) : 0));
+ReceptionDashboard.jsx:2108: setCustomFeeAmount(String(selectedBill.approvedAmount || (initialTotal > 0 ? initialTotal : '')));
+ReceptionDashboard.jsx:2114: setCustomFeeAmount(String(selectedBill.approvedAmount || (initialTotal > 0 ? initialTotal : '')));
+ReceptionDashboard.jsx:2118: const defaultMethod = selectedBill.source === 'appointments' ? 'app' : 'cash';
+ReceptionDashboard.jsx:2124: const phone = (selectedBill.phone || '').replace(/\D/g, '').slice(-10);
+ReceptionDashboard.jsx:2125: const billId = selectedBill.id;
+ReceptionDashboard.jsx:2157: setCustomFeeAmount(String(selectedBill.approvedAmount || (newTotal > 0 ? newTotal : '')));
+ReceptionDashboard.jsx:2158: setPaymentLegs([{ method: defaultMethod, amount: String(selectedBill.approvedAmount || (newTotal > 0 ? newTotal : '')) }]);
+ReceptionDashboard.jsx:2172: const phone = (selectedBill.phone || '').replace(/\D/g, '').slice(-10);
+ReceptionDashboard.jsx:2179: selectedBill.phone
+ReceptionDashboard.jsx:2218: setCustomFeeAmount(String(selectedBill.approvedAmount || (newTotal > 0 ? newTotal : '')));
+ReceptionDashboard.jsx:2219: setPaymentLegs([{ method: defaultMethod, amount: String(selectedBill.approvedAmount || (newTotal > 0 ? newTotal : '')) }]);
+ReceptionDashboard.jsx:2235: const patientPhone = selectedBill.phone || selectedBill.patientPhone || selectedBill.phoneNumber || selectedBill.contactNumber || selectedBill.contact || '';
+ReceptionDashboard.jsx:2247: if (d.id !== selectedBill.id) {
+ReceptionDashboard.jsx:2266: where('billId', '==', selectedBill.id)
+ReceptionDashboard.jsx:2285: where('targetId', '==', selectedBill.id),
+ReceptionDashboard.jsx:2328: }, [selectedBill]);
+ReceptionDashboard.jsx:2330: const docTargetConsult = selectedBill ? (selectedBill.consultationFee !== undefined && selectedBill.consultationFee !== null ? Number(selectedBill.consultationFee) : (selectedBill.paymentAmount ? Number(selectedBill.paymentAmount) : 0)) : 0;
+ReceptionDashboard.jsx:2331: const docTargetMed = selectedBill ? (selectedBill.medicineFeeRequested ? Number(selectedBill.medicineFeeRequested) : 0) : 0;
+ReceptionDashboard.jsx:2335: if (selectedBill) {
+ReceptionDashboard.jsx:2343: const followUpDate = selectedBill?.raw?.followUpDate || selectedBill?.followUpDate;
+ReceptionDashboard.jsx:2371: }, [billingMode, targetAmount, selectedBill, patientActivePackage]);
+ReceptionDashboard.jsx:2375: const followUpDate = selectedBill?.raw?.followUpDate || selectedBill?.followUpDate;
+ReceptionDashboard.jsx:2390: const followUpDate = selectedBill?.raw?.followUpDate || selectedBill?.followUpDate;
+ReceptionDashboard.jsx:2405: if (selectedNutritionPayPlan) {
+ReceptionDashboard.jsx:2408: where('targetId', '==', selectedNutritionPayPlan.id),
+ReceptionDashboard.jsx:2421: if (!selectedBill) {
+ReceptionDashboard.jsx:2428: }, [selectedNutritionPayPlan, selectedBill]);
+ReceptionDashboard.jsx:2442: if (showPayModal && selectedBill) {
+ReceptionDashboard.jsx:2446: const coll = selectedBill.source === 'appointments' ? 'appointments' : 'allpatients';
+ReceptionDashboard.jsx:2447: const docRef = doc(db, coll, selectedBill.id);
+ReceptionDashboard.jsx:2460: if (patientData.medicineFeeRequested !== selectedBill.medicineFeeRequested || patientData.consultationFee !== selectedBill.consultationFee) {
+ReceptionDashboard.jsx:2468: setPayPatientDoc(selectedBill);
+ReceptionDashboard.jsx:2469: setPayComplaint(selectedBill.complaint || selectedBill.subject || '');
+ReceptionDashboard.jsx:2470: setPayNotes(selectedBill.receptionNotes || selectedBill.notes || '');
+ReceptionDashboard.jsx:2471: const sbUrls = selectedBill.prescriptionUrls || (selectedBill.prescriptionUrl ? [selectedBill.prescriptionUrl] : []);
+ReceptionDashboard.jsx:2472: if (selectedBill.diagnosisDrawingUrl && !sbUrls.includes(selectedBill.diagnosisDrawingUrl)) sbUrls.push(selectedBill.diagnosisDrawingUrl);
+ReceptionDashboard.jsx:2476: const phone = patientData?.phone || selectedBill.phone;
+ReceptionDashboard.jsx:2480: collection(db, selectedBill.source === 'appointments' ? 'appointments' : 'allpatients'),
+ReceptionDashboard.jsx:2527: }, [showPayModal, selectedBill]);
+ReceptionDashboard.jsx:2531: if (!file || !selectedBill) return;
+ReceptionDashboard.jsx:2535: const storageRef = ref(storage, `prescriptions/${selectedBill.id}_${Date.now()}.jpg`);
+ReceptionDashboard.jsx:2542: const coll = selectedBill.source === 'appointments' ? 'appointments' : 'allpatients';
+ReceptionDashboard.jsx:2543: const docRef = doc(db, coll, selectedBill.id);
+ReceptionDashboard.jsx:2564: if (!selectedBill) return;
+ReceptionDashboard.jsx:2571: const coll = selectedBill.source === 'appointments' ? 'appointments' : 'allpatients';
+ReceptionDashboard.jsx:2572: const docRef = doc(db, coll, selectedBill.id);
+ReceptionDashboard.jsx:2590: if (!selectedBill) return;
+ReceptionDashboard.jsx:2593: const coll = selectedBill.source === 'appointments' ? 'appointments' : 'allpatients';
+ReceptionDashboard.jsx:2594: const docRef = doc(db, coll, selectedBill.id);
+ReceptionDashboard.jsx:2613: if (selectedBill && !selectedBill.amountLocked) {
+ReceptionDashboard.jsx:2620: const prevPending = Number(selectedBill?.pendingAmount || 0);
+ReceptionDashboard.jsx:2629: }, [includeConsultation, consultationFee, includeMedicine, medicineFee, includeDiet, dietFee, includePackage, packageFee, payLaterAmount, selectedBill, historicalPendingAmount, includePending]);
+ReceptionDashboard.jsx:2648: const [selectedMonthWeb, setSelectedMonthWeb] = useState('');
+ReceptionDashboard.jsx:3214: if (!selectedPatientFile) return;
+ReceptionDashboard.jsx:3217: const coll = selectedPatientFile.source === 'appointments' ? 'appointments' : 'allpatients';
+ReceptionDashboard.jsx:3218: const docRef = doc(db, coll, selectedPatientFile.id);
+ReceptionDashboard.jsx:3223: if (selectedPatientFile.source === 'appointments') {
+ReceptionDashboard.jsx:3231: // Update selectedPatientFile local state
+ReceptionDashboard.jsx:3252: if (!selectedPatientFile) return;
+ReceptionDashboard.jsx:3255: const isOnline = selectedPatientFile.source === 'appointments' || selectedPatientFile._type === 'online' || selectedPatientFile.source === 'UserApp' || selectedPatientFile.source === 'Patient App' || selectedPatientFile.source === 'Online';
+ReceptionDashboard.jsx:3257: const currentUrls = selectedPatientFile?.raw?.prescriptionUrls || (selectedPatientFile?.raw?.prescriptionUrl ? [selectedPatientFile.raw.prescriptionUrl] : []);
+ReceptionDashboard.jsx:3262: const storageRef = ref(storage, `prescriptions/${selectedPatientFile.id}_${Date.now()}_${file.name}`);
+ReceptionDashboard.jsx:3288: await updateUnifiedDocument(selectedPatientFile.id, isOnline, updateData);
+ReceptionDashboard.jsx:3292: patientId: selectedPatientFile.id,
+ReceptionDashboard.jsx:3293: patientName: selectedPatientFile.fullName,
+ReceptionDashboard.jsx:3294: phone: selectedPatientFile.phone || '',
+ReceptionDashboard.jsx:3295: doctorName: selectedPatientFile.doctor || 'Doctor',
+ReceptionDashboard.jsx:3296: branchId: selectedPatientFile.branchId || userData?.branchId || 'KPHB',
+ReceptionDashboard.jsx:3297: branchName: selectedPatientFile.branchName || userData?.branchName || 'KPHB Branch',
+ReceptionDashboard.jsx:3298: subject: selectedPatientFile.complaint || selectedPatientFile.subject || 'Consultation',
+ReceptionDashboard.jsx:3306: patientId: selectedPatientFile.id,
+ReceptionDashboard.jsx:3307: fullName: selectedPatientFile.fullName || 'Patient',
+ReceptionDashboard.jsx:3308: phone: selectedPatientFile.phone || '',
+ReceptionDashboard.jsx:3309: email: selectedPatientFile.email || '',
+ReceptionDashboard.jsx:3310: regId: selectedPatientFile.registrationId || '',
+ReceptionDashboard.jsx:3311: doctor: selectedPatientFile.doctor || 'Doctor',
+ReceptionDashboard.jsx:3312: branchId: selectedPatientFile.branchId || userData?.branchId || 'KPHB',
+ReceptionDashboard.jsx:3313: branchName: selectedPatientFile.branchName || userData?.branchName || 'KPHB Branch',
+ReceptionDashboard.jsx:3333: const cleanPhone = selectedPatientFile.phone?.replace(/\D/g, '').slice(-10);
+ReceptionDashboard.jsx:3335: const q = query(collection(db, 'package_members'), where('patientMobile', '==', selectedPatientFile.phone));
+ReceptionDashboard.jsx:3425: patientId: selectedPatientFile.id,
+ReceptionDashboard.jsx:3426: patientName: selectedPatientFile.fullName,
+ReceptionDashboard.jsx:3427: patientMobile: selectedPatientFile.phone || '',
+ReceptionDashboard.jsx:3438: branchId: selectedPatientFile.branchId || userData?.branchId || 'KPHB',
+ReceptionDashboard.jsx:3439: branchName: selectedPatientFile.branchName || userData?.branchName || 'KPHB Branch',
+ReceptionDashboard.jsx:3447: await updateDoc(doc(db, 'allpatients', selectedPatientFile.id), {
+ReceptionDashboard.jsx:3454: await updateDoc(doc(db, 'patients', selectedPatientFile.id), {

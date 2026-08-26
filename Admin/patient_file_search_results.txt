@@ -1,0 +1,159 @@
+ReceptionDashboard.jsx:1255: // Patient File Modal States
+ReceptionDashboard.jsx:1256: const [selectedPatientFile, setSelectedPatientFile] = useState(null);
+ReceptionDashboard.jsx:1258: const [patientFileHistory, setPatientFileHistory] = useState([]);
+ReceptionDashboard.jsx:1262: const [patientFileNutritionPlans, setPatientFileNutritionPlans] = useState([]);
+ReceptionDashboard.jsx:1321: if (!selectedPatientFile || consultationSubTab !== 'nutrition') {
+ReceptionDashboard.jsx:1326: const cleanPatientFilePhone = (selectedPatientFile.phone || '').replace(/\D/g, '').slice(-10);
+ReceptionDashboard.jsx:1329: return p.patientId === selectedPatientFile.id ||
+ReceptionDashboard.jsx:1330: p.patientId === selectedPatientFile.patientId ||
+ReceptionDashboard.jsx:1346: selectedNutritionPlan.patientId === selectedPatientFile.id ||
+ReceptionDashboard.jsx:1347: selectedNutritionPlan.patientId === selectedPatientFile.patientId;
+ReceptionDashboard.jsx:1357: setEditNutritionAge(latestPlan.age || selectedPatientFile.age || '30');
+ReceptionDashboard.jsx:1358: setEditNutritionHeight(latestPlan.height || selectedPatientFile.height || '');
+ReceptionDashboard.jsx:1359: setEditNutritionWeight(latestPlan.weight || selectedPatientFile.weight || '');
+ReceptionDashboard.jsx:1371: const ageVal = parseInt(selectedPatientFile.age || '30', 10) || 30;
+ReceptionDashboard.jsx:1375: patientId: selectedPatientFile.id || selectedPatientFile.patientId,
+ReceptionDashboard.jsx:1376: patientName: selectedPatientFile.fullName,
+ReceptionDashboard.jsx:1377: patientPhone: selectedPatientFile.phone,
+ReceptionDashboard.jsx:1378: age: selectedPatientFile.age || '30',
+ReceptionDashboard.jsx:1379: height: selectedPatientFile.height || '',
+ReceptionDashboard.jsx:1380: weight: selectedPatientFile.weight || '',
+ReceptionDashboard.jsx:1405: }, [selectedPatientFile, consultationSubTab, nutritionPlans]);
+ReceptionDashboard.jsx:1409: if (!selectedPatientFile) {
+ReceptionDashboard.jsx:1413: const cleanPhone = (selectedPatientFile.phone || '').replace(/\D/g, '').slice(-10);
+ReceptionDashboard.jsx:1414: const pkgId = selectedPatientFile.packageId || (cleanPhone ? activePackageMap.get(cleanPhone) : null);
+ReceptionDashboard.jsx:1434: }, [selectedPatientFile, activePackageMap]);
+ReceptionDashboard.jsx:1452: if (!selectedPatientFile || !selectedPatientFile.phone) {
+ReceptionDashboard.jsx:1457: const cleanPhone = selectedPatientFile.phone.replace(/\D/g, '').slice(-10);
+ReceptionDashboard.jsx:1478: }, [selectedPatientFile]);
+ReceptionDashboard.jsx:1483: if (!name || !selectedPatientFile?.phone) return;
+ReceptionDashboard.jsx:1484: const cleanPhone = selectedPatientFile.phone.replace(/\D/g, '').slice(-10);
+ReceptionDashboard.jsx:1539: const cleanPhone = selectedPatientFile.phone.replace(/\D/g, '').slice(-10);
+ReceptionDashboard.jsx:1564: const cleanPhone = selectedPatientFile.phone.replace(/\D/g, '').slice(-10);
+ReceptionDashboard.jsx:1583: if (!selectedPatientFile?.phone) return;
+ReceptionDashboard.jsx:1584: const cleanPhone = selectedPatientFile.phone.replace(/\D/g, '').slice(-10);
+ReceptionDashboard.jsx:1610: if (!selectedPatientFile?.phone) return;
+ReceptionDashboard.jsx:1611: const cleanPhone = selectedPatientFile.phone.replace(/\D/g, '').slice(-10);
+ReceptionDashboard.jsx:1631: const cleanPhone = selectedPatientFile.phone.replace(/\D/g, '').slice(-10);
+ReceptionDashboard.jsx:2431: // Pay Modal Patient File States
+ReceptionDashboard.jsx:3174: const openPatientFile = (item) => {
+ReceptionDashboard.jsx:3214: if (!selectedPatientFile) return;
+ReceptionDashboard.jsx:3217: const coll = selectedPatientFile.source === 'appointments' ? 'appointments' : 'allpatients';
+ReceptionDashboard.jsx:3218: const docRef = doc(db, coll, selectedPatientFile.id);
+ReceptionDashboard.jsx:3223: if (selectedPatientFile.source === 'appointments') {
+ReceptionDashboard.jsx:3231: // Update selectedPatientFile local state
+ReceptionDashboard.jsx:3252: if (!selectedPatientFile) return;
+ReceptionDashboard.jsx:3255: const isOnline = selectedPatientFile.source === 'appointments' || selectedPatientFile._type === 'online' || selectedPatientFile.source === 'UserApp' || selectedPatientFile.source === 'Patient App' || selectedPatientFile.source === 'Online';
+ReceptionDashboard.jsx:3257: const currentUrls = selectedPatientFile?.raw?.prescriptionUrls || (selectedPatientFile?.raw?.prescriptionUrl ? [selectedPatientFile.raw.prescriptionUrl] : []);
+ReceptionDashboard.jsx:3262: const storageRef = ref(storage, `prescriptions/${selectedPatientFile.id}_${Date.now()}_${file.name}`);
+ReceptionDashboard.jsx:3288: await updateUnifiedDocument(selectedPatientFile.id, isOnline, updateData);
+ReceptionDashboard.jsx:3292: patientId: selectedPatientFile.id,
+ReceptionDashboard.jsx:3293: patientName: selectedPatientFile.fullName,
+ReceptionDashboard.jsx:3294: phone: selectedPatientFile.phone || '',
+ReceptionDashboard.jsx:3295: doctorName: selectedPatientFile.doctor || 'Doctor',
+ReceptionDashboard.jsx:3296: branchId: selectedPatientFile.branchId || userData?.branchId || 'KPHB',
+ReceptionDashboard.jsx:3297: branchName: selectedPatientFile.branchName || userData?.branchName || 'KPHB Branch',
+ReceptionDashboard.jsx:3298: subject: selectedPatientFile.complaint || selectedPatientFile.subject || 'Consultation',
+ReceptionDashboard.jsx:3306: patientId: selectedPatientFile.id,
+ReceptionDashboard.jsx:3307: fullName: selectedPatientFile.fullName || 'Patient',
+ReceptionDashboard.jsx:3308: phone: selectedPatientFile.phone || '',
+ReceptionDashboard.jsx:3309: email: selectedPatientFile.email || '',
+ReceptionDashboard.jsx:3310: regId: selectedPatientFile.registrationId || '',
+ReceptionDashboard.jsx:3311: doctor: selectedPatientFile.doctor || 'Doctor',
+ReceptionDashboard.jsx:3312: branchId: selectedPatientFile.branchId || userData?.branchId || 'KPHB',
+ReceptionDashboard.jsx:3313: branchName: selectedPatientFile.branchName || userData?.branchName || 'KPHB Branch',
+ReceptionDashboard.jsx:3333: const cleanPhone = selectedPatientFile.phone?.replace(/\D/g, '').slice(-10);
+ReceptionDashboard.jsx:3335: const q = query(collection(db, 'package_members'), where('patientMobile', '==', selectedPatientFile.phone));
+ReceptionDashboard.jsx:3425: patientId: selectedPatientFile.id,
+ReceptionDashboard.jsx:3426: patientName: selectedPatientFile.fullName,
+ReceptionDashboard.jsx:3427: patientMobile: selectedPatientFile.phone || '',
+ReceptionDashboard.jsx:3438: branchId: selectedPatientFile.branchId || userData?.branchId || 'KPHB',
+ReceptionDashboard.jsx:3439: branchName: selectedPatientFile.branchName || userData?.branchName || 'KPHB Branch',
+ReceptionDashboard.jsx:3447: await updateDoc(doc(db, 'allpatients', selectedPatientFile.id), {
+ReceptionDashboard.jsx:3454: await updateDoc(doc(db, 'patients', selectedPatientFile.id), {
+ReceptionDashboard.jsx:3464: await updateDoc(doc(db, 'appointments', selectedPatientFile.id), {
+ReceptionDashboard.jsx:3474: ...selectedPatientFile,
+ReceptionDashboard.jsx:3492: if (!selectedPatientFile) return;
+ReceptionDashboard.jsx:3495: const coll = selectedPatientFile.source === 'appointments' ? 'appointments' : 'allpatients';
+ReceptionDashboard.jsx:3496: const docRef = doc(db, coll, selectedPatientFile.id);
+ReceptionDashboard.jsx:3513: await updateDoc(doc(db, 'allpatients', selectedPatientFile.id), {
+ReceptionDashboard.jsx:3524: const patientIdForSync = selectedPatientFile.patientId || selectedPatientFile.id;
+ReceptionDashboard.jsx:3525: const rawPhoneSync = selectedPatientFile.phone || selectedPatientFile.patientPhone || '';
+ReceptionDashboard.jsx:3562: if (selectedPatientFile.source === 'appointments') {
+ReceptionDashboard.jsx:3563: const appt = selectedPatientFile.raw;
+ReceptionDashboard.jsx:3589: appt.phone || appt.patientPhone || selectedPatientFile.phone || '',
+ReceptionDashboard.jsx:3590: appt.fullName || appt.patientName || selectedPatientFile.fullName || '',
+ReceptionDashboard.jsx:3591: appt.doctorName || selectedPatientFile.doctor || '',
+ReceptionDashboard.jsx:3593: appt.timeSlot || selectedPatientFile.timeSlot || '',
+ReceptionDashboard.jsx:3594: appt.branchName || selectedPatientFile.branchName || userData?.branchName || 'KPHB'
+ReceptionDashboard.jsx:3613: appointmentId: selectedPatientFile.id,
+ReceptionDashboard.jsx:3623: // Update selectedPatientFile local state
+ReceptionDashboard.jsx:3703: openPatientFile(item);
+ReceptionDashboard.jsx:3712: if (!file || !selectedPatientFile) return;
+ReceptionDashboard.jsx:3716: const storageRef = ref(storage, `prescriptions/${selectedPatientFile.id}_${Date.now()}.jpg`);
+ReceptionDashboard.jsx:3719: const patientRaw = selectedPatientFile.raw;
+ReceptionDashboard.jsx:3723: const coll = selectedPatientFile.source === 'appointments' ? 'appointments' : 'allpatients';
+ReceptionDashboard.jsx:3724: const docRef = doc(db, coll, selectedPatientFile.id);
+ReceptionDashboard.jsx:3749: if (!selectedPatientFile) return;
+ReceptionDashboard.jsx:3752: const patientRaw = selectedPatientFile.raw;
+ReceptionDashboard.jsx:3756: const coll = selectedPatientFile.source === 'appointments' ? 'appointments' : 'allpatients';
+ReceptionDashboard.jsx:3757: const docRef = doc(db, coll, selectedPatientFile.id);
+ReceptionDashboard.jsx:6642: const targetPatient = selectedPatientFile || selectedNutritionPlan.patientFile;
+ReceptionDashboard.jsx:6725: if (selectedPatientFile && selectedPatientFile.phone) {
+ReceptionDashboard.jsx:6726: fetchPatientFileNutritionPlans(selectedPatientFile.phone);
+ReceptionDashboard.jsx:7529: const isPkg = selectedPatientFile.packageId || (selectedPatientFile.phone && activePackageMap.has(String(selectedPatientFile.phone).replace(/\D/g, '').slice(-10)));
+ReceptionDashboard.jsx:7543: const isOnline = selectedPatientFile.source === 'appointments' || selectedPatientFile.source === 'UserApp' || selectedPatientFile.source === 'Patient App' || selectedPatientFile.source === 'Online' || selectedPatientFile._type === 'online';
+ReceptionDashboard.jsx:7544: await updateUnifiedDocument(selectedPatientFile.id, isOnline, updateData);
+ReceptionDashboard.jsx:7549: patientId: selectedPatientFile.id,
+ReceptionDashboard.jsx:7550: patientName: selectedPatientFile.fullName || 'Patient',
+ReceptionDashboard.jsx:7551: fullName: selectedPatientFile.fullName || 'Patient',
+ReceptionDashboard.jsx:7552: phone: selectedPatientFile.phone || '',
+ReceptionDashboard.jsx:7553: email: selectedPatientFile.email || '',
+ReceptionDashboard.jsx:7554: doctor: selectedPatientFile.doctor || 'General Doctor',
+ReceptionDashboard.jsx:7555: branchId: selectedPatientFile.branchId || userData?.branchId || 'KPHB',
+ReceptionDashboard.jsx:7556: branchName: selectedPatientFile.branchName || userData?.branchName || 'KPHB Branch',
+ReceptionDashboard.jsx:7559: complaint: selectedPatientFile.complaint || selectedPatientFile.subject || 'Consultation',
+ReceptionDashboard.jsx:7713: if (!selectedPatientFile) return;
+ReceptionDashboard.jsx:7722: patientId: selectedPatientFile.patientId || selectedPatientFile.id,
+ReceptionDashboard.jsx:7723: regId: selectedPatientFile.registrationId || selectedPatientFile.regId || selectedPatientFile.regID || '',
+ReceptionDashboard.jsx:7724: registrationId: selectedPatientFile.registrationId || selectedPatientFile.regId || selectedPatientFile.regID || '',
+ReceptionDashboard.jsx:7725: patientName: selectedPatientFile.fullName,
+ReceptionDashboard.jsx:7726: patientPhone: selectedPatientFile.phone,
+ReceptionDashboard.jsx:7743: branchId: selectedPatientFile.branchId || 'KPHB',
+ReceptionDashboard.jsx:7744: branchName: selectedPatientFile.branchName || 'KPHB Branch',
+ReceptionDashboard.jsx:7865: <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''}`} style={{ display: (showPatientFileModal && selectedPatientFile) ? 'none' : 'flex' }}>
+ReceptionDashboard.jsx:7978: <main className="main-content" style={{ display: (showPatientFileModal && selectedPatientFile) ? 'none' : 'block' }}>
+ReceptionDashboard.jsx:8564: onClick={() => openPatientFile(item)}
+ReceptionDashboard.jsx:8719: onClick={() => openPatientFile(item)}
+ReceptionDashboard.jsx:8995: Search All Patient Files
+ReceptionDashboard.jsx:9027: onClick={() => openPatientFile({ id: p.id, source: p.source, raw: p.raw, ...p.raw })}
+ReceptionDashboard.jsx:9074: onClick={() => openPatientFile({ id: p.id, source: p.source, raw: p.raw, ...p.raw })}
+ReceptionDashboard.jsx:9143: onClick={() => openPatientFile({ id: p.id, source: 'allpatients', raw: p, ...p })}
+ReceptionDashboard.jsx:11491: {/* LEFT COLUMN: Patient File & Records */}
+ReceptionDashboard.jsx:11496: <span style={{ fontSize: '14px', color: 'var(--text-muted)' }}>Loading Patient File & Records...</span>
+ReceptionDashboard.jsx:11654: openPatientFile({ id: selectedBill.id, source: selectedBill.source, raw: selectedBill.raw || selectedBill, ...selectedBill });
+ReceptionDashboard.jsx:13164: {/* Full-Screen Patient File Workspace (Not a modal) - mirrors DoctorDashboard */}
+ReceptionDashboard.jsx:13165: {showPatientFileModal && selectedPatientFile && (
+ReceptionDashboard.jsx:13167: {/* Top Navbar for Patient File Workspace */}
+ReceptionDashboard.jsx:13192: Patient File: {selectedPatientFile.fullName}
+ReceptionDashboard.jsx:13193: {renderPatientTags(selectedPatientFile, activePackageMap)}
+ReceptionDashboard.jsx:13217: <span>{selectedPatientFile.fullName}</span>
+ReceptionDashboard.jsx:13218: {renderPatientTags(selectedPatientFile, activePackageMap)}
+ReceptionDashboard.jsx:13223: <Phone size={16} color="#64748b" /> {selectedPatientFile.phone || 'N/A'}
+ReceptionDashboard.jsx:13226: <MapPin size={16} color="#64748b" /> {selectedPatientFile.branchName || 'N/A'}
+ReceptionDashboard.jsx:13229: <Megaphone size={16} color="#64748b" /> Source: {selectedPatientFile.source === 'appointments' || selectedPatientFile.source === 'UserApp' || selectedPatientFile.source === 'Patient App' ? 'Patient App' : (selectedPatientFile.source || 'Walk-in')}
+ReceptionDashboard.jsx:13233: <span style={{ color: '#0f172a', fontWeight: '600' }}>Subject: {selectedPatientFile.complaint || selectedPatientFile.subject || 'Fever'}</span>
+ReceptionDashboard.jsx:13321: const pdUrls = selectedPatientFile?.raw?.prescriptionUrls || (selectedPatientFile?.raw?.prescriptionUrl ? [selectedPatientFile.raw.prescriptionUrl] : []);
+ReceptionDashboard.jsx:13322: if (selectedPatientFile?.raw?.diagnosisDrawingUrl && !pdUrls.includes(selectedPatientFile.raw.diagnosisDrawingUrl)) pdUrls.push(selectedPatientFile.raw.diagnosisDrawingUrl);
+ReceptionDashboard.jsx:13666: {!(selectedPatientFile?.packageId || (selectedPatientFile?.phone && activePackageMap.has(String(selectedPatientFile.phone).replace(/\D/g, '').slice(-10)))) ? (
+ReceptionDashboard.jsx:13691: const cleanPatientFilePhone = (selectedPatientFile.phone || '').replace(/\D/g, '').slice(-10);
+ReceptionDashboard.jsx:13694: return p.patientId === selectedPatientFile.id ||
+ReceptionDashboard.jsx:13695: p.patientId === selectedPatientFile.patientId ||
+ReceptionDashboard.jsx:13726: patientId: selectedPatientFile.id || selectedPatientFile.patientId,
+ReceptionDashboard.jsx:13727: patientName: selectedPatientFile.fullName,
+ReceptionDashboard.jsx:13728: patientPhone: selectedPatientFile.phone,
+ReceptionDashboard.jsx:13729: age: selectedPatientFile.age || '30',
+ReceptionDashboard.jsx:13730: height: selectedPatientFile.height || '',
+ReceptionDashboard.jsx:13731: weight: selectedPatientFile.weight || '',
+ReceptionDashboard.jsx:14430: {showWebShareModal && selectedPatientFile && (
+ReceptionDashboard.jsx:14457: Sharing this media with <strong>{selectedPatientFile.fullName}</strong> ({selectedPatientFile.phone}) will allow them to view it in their app.
