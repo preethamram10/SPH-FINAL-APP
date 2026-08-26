@@ -1582,6 +1582,38 @@ const SuperAdminDashboard = () => {
 
 
 
+  // O(1) patient lookups to optimize SuperAdminDashboard performance
+  // Pre-builds indexed maps by ID, Registration ID/No, Clean 10-digit Phone, and Lowercase Name.
+  // Reduces O(N * M) linear scans during transaction and revenue calculations down to O(1).
+  const patientIndex = useMemo(() => {
+    const byId = new Map();
+    const byRegId = new Map();
+    const byRegNo = new Map();
+    const byCleanPhone = new Map();
+    const byNameLower = new Map();
+
+    (patients || []).forEach(pt => {
+      if (pt.id) byId.set(String(pt.id), pt);
+
+      const ptRegId = pt.registrationId || pt.regId || pt.regID;
+      if (ptRegId) {
+        byRegId.set(String(ptRegId), pt);
+        byRegId.set(String(ptRegId).toLowerCase(), pt);
+      }
+
+      const ptRegNo = pt.registrationNo || pt.regNo || pt.patientId || pt.id;
+      if (ptRegNo) byRegNo.set(String(ptRegNo), pt);
+
+      const ptPhone = String(pt.phone || pt.patientPhone || pt.phoneNumber || '').replace(/\D/g, '').slice(-10);
+      if (ptPhone && ptPhone.length === 10) byCleanPhone.set(ptPhone, pt);
+
+      const ptName = pt.fullName || pt.patientName || pt.name;
+      if (ptName) byNameLower.set(String(ptName).toLowerCase(), pt);
+    });
+
+    return { byId, byRegId, byRegNo, byCleanPhone, byNameLower };
+  }, [patients]);
+
   // Pharmacy Revenue Calculations
   const filteredPharmacyTransactions = medicineTransactions.filter(tr => {
     if (tr.type === 'consultation') return false;
@@ -1622,7 +1654,7 @@ const SuperAdminDashboard = () => {
     const matchesSource = revenueSource === 'all' || (tr.source || 'Walk-in') === revenueSource;
     const matchesMethod = revenueMethod === 'all' || tr.method === revenueMethod;
 
-    const patientDoc = tr.patientId ? patients.find(p => p.id === tr.patientId) : null;
+    const patientDoc = tr.patientId ? patientIndex.byId.get(String(tr.patientId)) : null;
     const docName = tr.doctor || tr.doctorName || tr.prescribedBy || patientDoc?.doctor || patientDoc?.doctorName || patientDoc?.assignDoctor || 'N/A';
     const matchesDoctor = revenueDoctor === 'all' || docName === revenueDoctor;
 
@@ -1711,7 +1743,7 @@ const SuperAdminDashboard = () => {
       if (revenueDate || revenueYear !== 'all') matchesDate = false;
     }
 
-    const patientDoc = form.patientId ? patients.find(p => p.id === form.patientId) : null;
+    const patientDoc = form.patientId ? patientIndex.byId.get(String(form.patientId)) : null;
     const docName = form.doctor || form.doctorName || patientDoc?.doctor || patientDoc?.doctorName || patientDoc?.assignDoctor || 'N/A';
     const matchesDoctor = revenueDoctor === 'all' || docName === revenueDoctor;
 
@@ -1767,7 +1799,7 @@ const SuperAdminDashboard = () => {
       if (revenueDate || revenueYear !== 'all') matchesDate = false;
     }
 
-    const patientDoc = plan.patientId ? patients.find(p => p.id === plan.patientId) : null;
+    const patientDoc = plan.patientId ? patientIndex.byId.get(String(plan.patientId)) : null;
     const docName = plan.doctorName || patientDoc?.doctor || patientDoc?.doctorName || patientDoc?.assignDoctor || 'N/A';
     const matchesDoctor = revenueDoctor === 'all' || docName === revenueDoctor;
 
@@ -1941,7 +1973,8 @@ const SuperAdminDashboard = () => {
 
   const getMemberBranchName = (member) => {
     if (member.branchName) return member.branchName;
-    const patientObj = patients.find(p => p.phone === member.patientMobile || p.id === member.patientId);
+    const patientObj = (member.patientId ? patientIndex.byId.get(String(member.patientId)) : null) ||
+      (member.patientMobile ? patientIndex.byCleanPhone.get(String(member.patientMobile).replace(/\D/g, '').slice(-10)) : null);
     return patientObj?.branchName || 'Unknown';
   };
   const handlePackageExportToCSV = () => {
@@ -2263,18 +2296,11 @@ const SuperAdminDashboard = () => {
       const rawPhone = item.phone || item.patientPhone || item.phoneNumber || item.contactNumber || item.contact || '';
       const cleanPhone = String(rawPhone).replace(/\D/g, '').slice(-10);
 
-      const match = patients.find(pt => {
-        const ptRegId = pt.registrationId || pt.regId || pt.regID || '';
-        const ptRegNo = pt.registrationNo || pt.regNo || pt.patientId || pt.id || '';
-        const ptPhone = String(pt.phone || pt.patientPhone || pt.phoneNumber || '').replace(/\D/g, '').slice(-10);
-        const ptName = pt.fullName || pt.patientName || pt.name || '';
-
-        if (regNo && (ptRegNo === regNo || pt.id === regNo)) return true;
-        if (regId && (ptRegId === regId || ptRegId.toLowerCase() === regId.toLowerCase())) return true;
-        if (cleanPhone && cleanPhone.length === 10 && ptPhone === cleanPhone) return true;
-        if (name && name !== '-' && ptName && ptName.toLowerCase() === name.toLowerCase()) return true;
-        return false;
-      });
+      let match = null;
+      if (regNo) match = patientIndex.byRegNo.get(String(regNo)) || patientIndex.byId.get(String(regNo));
+      if (!match && regId) match = patientIndex.byRegId.get(String(regId)) || patientIndex.byRegId.get(String(regId).toLowerCase());
+      if (!match && cleanPhone && cleanPhone.length === 10) match = patientIndex.byCleanPhone.get(cleanPhone);
+      if (!match && name && name !== '-') match = patientIndex.byNameLower.get(String(name).toLowerCase());
 
       const finalRegId = (regId && regId !== '-') ? regId : (match?.registrationId || match?.regId || (regNo && regNo.startsWith('WK') ? regNo : null) || '-');
       const finalName = (name && name !== '-') ? name : (match?.fullName || match?.patientName || '-');
@@ -2487,7 +2513,7 @@ const SuperAdminDashboard = () => {
         else fullDateTime = safeDateDisplay(tr.timestamp) || 'N/A';
       }
 
-      const patientDoc = tr.patientId ? patients.find(p => p.id === tr.patientId) : null;
+      const patientDoc = tr.patientId ? patientIndex.byId.get(String(tr.patientId)) : null;
 
       list.push({
         id: `old_cons_${tr.id || Math.random()}`,
@@ -2545,7 +2571,7 @@ const SuperAdminDashboard = () => {
 
     // Pharmacy
     filteredPharmacyTransactions.forEach(tr => {
-      const patientDoc = tr.patientId ? patients.find(p => p.id === tr.patientId) : null;
+      const patientDoc = tr.patientId ? patientIndex.byId.get(String(tr.patientId)) : null;
 
       const parseD = (raw) => {
         if (!raw) return null;
@@ -2686,7 +2712,7 @@ const SuperAdminDashboard = () => {
 
     // Medicine Forms
     filteredMedicineForms.forEach(form => {
-      const patientDoc = form.patientId ? patients.find(p => p.id === form.patientId) : null;
+      const patientDoc = form.patientId ? patientIndex.byId.get(String(form.patientId)) : null;
 
       const parseD = (raw) => {
         if (!raw) return null;
@@ -2736,7 +2762,7 @@ const SuperAdminDashboard = () => {
 
     // Diet Plans (Nutrition Plans)
     filteredNutritionPlansForRevenue.forEach(plan => {
-      const patientDoc = plan.patientId ? patients.find(p => p.id === plan.patientId) : null;
+      const patientDoc = plan.patientId ? patientIndex.byId.get(String(plan.patientId)) : null;
 
       const parseD = (raw) => {
         if (!raw) return null;
@@ -4792,7 +4818,7 @@ const SuperAdminDashboard = () => {
                             couponsList
                               .filter(c => c.status === 'active')
                               .map(c => {
-                                const patientMatch = patients.find(p => p.id === c.userId);
+                                const patientMatch = c.userId ? patientIndex.byId.get(String(c.userId)) : null;
                                 let displayName = (patientMatch && patientMatch.fullName && patientMatch.fullName !== 'Patient') ? patientMatch.fullName : '';
                                 let displayPhone = (patientMatch && patientMatch.phone && patientMatch.phone !== 'N/A') ? patientMatch.phone : '';
 
@@ -4862,7 +4888,7 @@ const SuperAdminDashboard = () => {
                             couponsList
                               .filter(c => c.status === 'redeemed')
                               .map(c => {
-                                const patientMatch = patients.find(p => p.id === c.userId);
+                                const patientMatch = c.userId ? patientIndex.byId.get(String(c.userId)) : null;
                                 let displayName = (patientMatch && patientMatch.fullName && patientMatch.fullName !== 'Patient') ? patientMatch.fullName : '';
                                 let displayPhone = (patientMatch && patientMatch.phone && patientMatch.phone !== 'N/A') ? patientMatch.phone : '';
 

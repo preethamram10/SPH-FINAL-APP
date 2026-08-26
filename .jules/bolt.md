@@ -1,0 +1,3 @@
+## 2025-02-26 - Pre-index Array Scans for O(1) Lookups in Large Dashboard Calculations
+**Learning:** Performing `patients.find()` inside iterated lists (like transactions, revenue forms, diet plans, coupons) creates an $O(N \times M)$ complexity bottleneck. In `SuperAdminDashboard.jsx`, this resulted in millions of string/regex operations per re-render as datasets grew.
+**Action:** Always pre-build a memoized index Map (`useMemo`) by candidate keys (IDs, registration numbers, clean phone numbers, normalized names) before processing large transaction arrays, turning linear searches into $O(1)$ constant-time Map lookups.
