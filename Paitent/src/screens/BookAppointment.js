@@ -86,19 +86,28 @@ const getBranchDirectionLink = (branchName) => {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(branchName)}`;
 };
 
+const timeToMinCache = new Map();
+const parseTimeToMinutes = (timeStr) => {
+  if (!timeStr) return 0;
+  let cached = timeToMinCache.get(timeStr);
+  if (cached !== undefined) return cached;
+  const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM)/i);
+  if (!match) {
+    timeToMinCache.set(timeStr, 0);
+    return 0;
+  }
+  let hours = parseInt(match[1], 10);
+  const minutes = parseInt(match[2], 10);
+  const ampm = match[3].toUpperCase();
+  if (ampm === 'PM' && hours < 12) hours += 12;
+  if (ampm === 'AM' && hours === 12) hours = 0;
+  const val = hours * 60 + minutes;
+  timeToMinCache.set(timeStr, val);
+  return val;
+};
+
 const isSlotBlockedByNoShow = (slotTimeStr, dateString, noShows) => {
   if (!noShows || noShows.length === 0) return false;
-
-  const parseTimeToMinutes = (timeStr) => {
-    const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM)/i);
-    if (!match) return 0;
-    let hours = parseInt(match[1], 10);
-    const minutes = parseInt(match[2], 10);
-    const ampm = match[3].toUpperCase();
-    if (ampm === 'PM' && hours < 12) hours += 12;
-    if (ampm === 'AM' && hours === 12) hours = 0;
-    return hours * 60 + minutes;
-  };
 
   const slotMin = parseTimeToMinutes(slotTimeStr);
 
@@ -765,17 +774,7 @@ const BookAppointment = ({ route, navigation }) => {
       const existingDbSlots = Object.keys(counts).filter(t => t && t !== 'null' && t !== 'undefined');
       const combinedList = [...new Set([...generatedList, ...existingDbSlots, ...extraSlots])];
       
-      combinedList.sort((a, b) => {
-        const parseToMin = (t) => {
-          const m = t.match(/(\d+):(\d+)\s*(AM|PM)/i);
-          if (!m) return 0;
-          let h = parseInt(m[1], 10), min = parseInt(m[2], 10);
-          if (m[3].toUpperCase() === 'PM' && h < 12) h += 12;
-          if (m[3].toUpperCase() === 'AM' && h === 12) h = 0;
-          return h * 60 + min;
-        };
-        return parseToMin(a) - parseToMin(b);
-      });
+      combinedList.sort((a, b) => parseTimeToMinutes(a) - parseTimeToMinutes(b));
 
       const slotsWithAvailability = combinedList.map(time => {
         const booked = counts[time] || 0;
