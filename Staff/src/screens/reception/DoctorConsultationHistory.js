@@ -150,6 +150,9 @@ const DoctorConsultationHistory = ({ navigation }) => {
   const doctorHistory = useMemo(() => {
     if (!userData) return [];
     const docNorm = normalizeDoctorName(userData.name || '');
+    const filterBranchObj = branchFilter !== 'all' ? branches.find(b => b.id === branchFilter) : null;
+    const branchName = filterBranchObj?.name;
+
     return patients.filter(p => {
       // Doctor match
       const patDocNorm = normalizeDoctorName(p.doctor || '');
@@ -167,7 +170,6 @@ const DoctorConsultationHistory = ({ navigation }) => {
 
       // Branch
       if (branchFilter !== 'all') {
-        const branchName = branches.find(b => b.id === branchFilter)?.name;
         const match = p.branchId === branchFilter ||
           (p.branchName && branchName && p.branchName === branchName);
         if (!match) return false;
